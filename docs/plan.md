@@ -103,13 +103,26 @@ Every milestone ends with external checks. The checks used throughout are:
 
 ### M0: Pre-flight (no code)
 
-Done on 2026-10-18: disk measured (`capacity.md`), and the tunnel layout and closed firewall recorded (ADR 0003).
+**Done on 2026-10-18.** Decisions taken at the M0 gate:
 
-- Confirm once that the origin's ports 80 and 443 are closed → verify: from outside, `curl -m 5 http://<origin-ip>` and `curl -m 5 -k https://<origin-ip>` both time out.
-- Apply D10 (Cloudflare Access on `coolify.`, `beszel.`, `ssh.`) → verify: an unauthenticated `curl -I https://coolify.vikingthe.dev` gets a redirect to Cloudflare Access, and the same holds for `beszel.` and `ssh.`.
-- Run `cloudflared` as a dedicated unprivileged system user (the packaged systemd service) instead of `ubuntu` (D9) → verify: `ps -o user= -C cloudflared` prints the service user, and that user has no sudo rights.
-- Decide D13 (swap and container limits) → verify: `swapon --show` lists the swapfile.
-- Apply the repo settings in `ci-deploy.md` (secret scanning, Dependabot, branch protection) → verify: `gh api repos/:owner/:repo` shows them on.
+1. Cloudflare Access gets a Bypass rule for `coolify.vikingthe.dev/api/v1/deploy` only, so CI's deploy webhook works. Coolify's API token still protects that path.
+2. Access logs in with an emailed one-time PIN, with Cloudflare as a second login option.
+3. A 4 GiB swapfile with `swappiness=10`.
+4. Branch rules block force-pushes and deletion of `main` now. Required PRs and status checks come in M1, once CI exists.
+5. The repo is public.
+6. OVH's edge firewall is the only layer in front of Docker-published ports (D20).
+
+Results:
+
+- Ports → done: external probes found 22, 80, 443, 6001, 6002, 8000, 8080 and 52843 (sshd) closed or filtered on IPv4. The VPS has no public IPv6.
+- Cloudflare Access on `coolify.`, `beszel.`, `ssh.` (D10) → done: unauthenticated requests redirect to Cloudflare Access, and `/api/v1/deploy` reaches Coolify, which answers 401 without its token.
+- `cloudflared` off root (D9) → done:
+  - all four tunnels run as the unprivileged `cloudflared` user, under hardened systemd units, with `protocol: http2`;
+  - that user has no sudo rights;
+  - the hand-installed `/usr/local/bin/cloudflared` is replaced by the apt package;
+  - the token-based ssh tunnel was replaced by a new tunnel, and the old one deleted, which rotates its partly exposed token.
+- Swap (D13) → done: `swapon --show` lists the 4 GiB swapfile. The maintainer sets container memory limits per resource when creating each one in M1 and M2.
+- Repo settings → done: secret scanning and push protection, Dependabot alerts and security updates, private vulnerability reporting, and a ruleset blocking deletion and force-pushes on `main`. `SECURITY.md` is added.
 
 ### M1: Walking skeleton (tests every Known risk)
 
@@ -120,7 +133,7 @@ Scope: an empty prerendered homepage with one on-demand route and one server isl
 2. **Known risk: does `tower-sessions` hash IDs at rest?** Read the source of the version we'd pin → verify: the answer is recorded, and the store is either `tower-sessions` or a hand-rolled store on `fred`.
 3. Session issuance without an auth method: a test-only login route behind a cargo feature `e2e`, compiled only into the CI-stack image, plus an `api issue-session` CLI subcommand that only the human runs on the VPS → verify: an HTTP test asserts the production build returns 404 on the test route, and CI checks that the production image was built without the feature. The CI-stack image is built with `--load` only: it's never pushed to GHCR, and never tagged `:<sha>` or `:prod`.
 4. **Known risk: does `pnpm deploy` need `inject-workspace-packages=true`?** Build the Astro images → verify: the build succeeds and the answer is recorded.
-5. CI: checks → build → push `:<sha>` and `:prod` → Coolify webhook → wait for the health endpoint → verify: the workflow is green, and `/api/health` returns the pushed SHA.
+5. CI: checks → build → push `:<sha>` and `:prod` → Coolify webhook → wait for the health endpoint → verify: the workflow is green, `/api/health` returns the pushed SHA, and the `main` ruleset now requires PRs and the CI status checks. Every Coolify resource created in M1 has its memory limit from `capacity.md`.
 6. **Known risk: does a Docker Image resource re-pull on webhook redeploy?** → verify: two consecutive deploys of different commits each change the SHA reported by `/api/health`.
 7. **Known risk: does Coolify route `Host && /api` to a different resource than `/`?** → verify: `https://vikingthe.dev/api/health` and `https://canary.vikingthe.dev/api/health` return the API's SHA, while `/` on each host returns Astro.
 8. **Known risk: how does a Docker Image resource reach `:8081`?** → verify: canary's server-rendered HTML shows "anonymous" within the 50 ms budget, the API logs the internal call, and `:8081` is unreachable from outside.

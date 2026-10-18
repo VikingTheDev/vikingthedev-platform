@@ -10,7 +10,7 @@
 | Provider | OVH VPS |
 | CPU | 8 vCPU, AMD EPYC-Milan, 1 thread per core. Steal was 0% over a 5-second `vmstat` sample. |
 | Memory | 22.9 GiB visible (24 GB nominal). 1.5 GiB in use, 21 GiB available. |
-| Swap | **None** (see D13) |
+| Swap | 4 GiB swapfile, `swappiness=10` (added in M0, D13) |
 | Disk | One filesystem, 193 GB, with 184 GB free |
 | Disk performance | About 1,700 synchronous 8 KiB writes per second (14 MB/s with `dd oflag=dsync`). fio isn't installed, so random IOPS are unmeasured |
 | Network | 3 Gb/s (stated, not measured) |
@@ -18,7 +18,7 @@
 | Docker | 29.8.2 |
 | Coolify | 4.4.6 |
 | Traefik | v3.7 (`coolify-proxy`) |
-| Ingress | Cloudflare Tunnel: `cloudflared` runs on the host as the `ubuntu` user (D9), with four tunnels |
+| Ingress | Cloudflare Tunnel: four tunnels, run on the host as the unprivileged `cloudflared` user (D9) |
 
 ### Running now
 

@@ -12,20 +12,21 @@
 | D3 | PostgreSQL library | **Resolved: Diesel.** diesel-async vs sync is open | Claude (spike in M2), maintainer confirms | 0005 (proposed) |
 | D4 | API conventions | Recommended | Maintainer approves | 0006 (proposed) |
 | D5 | Backups and restore | **Resolved: OVH daily backups, no restore drill.** Nightly `pg_dump` recommended | Maintainer | No |
-| D6 | Monitoring and external uptime | Recommended | Maintainer signs up | No |
+| D6 | Monitoring and external uptime | Recommended | Maintainer signs up (M1 step 17) | No |
 | D7 | Staging | **Resolved: none for now** | — | 0002 (proposed) |
 | D8 | GDPR basics | Recommended | Claude drafts, maintainer approves | No |
 | D9 | Ingress through Cloudflare Tunnel | **Resolved: facts recorded** | — | 0003 (proposed) |
-| D10 | Admin hosts on the cookie domain | **Resolved: Cloudflare Access now** | Maintainer applies in M0 | 0003 (proposed) |
+| D10 | Admin hosts on the cookie domain | **Resolved and applied: Cloudflare Access** (M0) | — | 0003 (proposed) |
 | D11 | Authenticated E2E without staging | Recommended | Maintainer approves | 0002 (proposed) |
 | D12 | Design token pipeline | Recommended | Maintainer approves at M4 | No |
-| D13 | Swap and container memory limits | Recommended | Maintainer applies on the VPS | No |
+| D13 | Swap and container memory limits | **Swap applied: 4 GiB, swappiness 10.** Limits are set per resource from M1 | The maintainer sets each limit from `capacity.md` when creating the resource | No |
 | D14 | Contact form anti-spam | Recommended | Maintainer | No |
 | D15 | GitHub data for the portfolio | Recommended | Maintainer | No |
 | D16 | When migrations run | Recommended | Claude, in M2 | No |
 | D17 | R2 layout for the file drop | Deferred to that app's spec | Maintainer | Maybe |
 | D18 | Sign-up and access model | Open | Maintainer | 0004 (proposed) |
 | D19 | Admin app (`admin.vikingthe.dev`) protection and scope | Open | Maintainer | No; covered by its spec |
+| D20 | Host firewall for Docker-published ports | **Resolved: accept OVH's edge firewall as the only layer.** Improvements are listed | Maintainer | No |
 
 ## Details
 
@@ -126,13 +127,13 @@ Recommendation, detailed in ADR 0006 and applied in `api-contract.md`:
 
 **Resolved facts (the maintainer, 2026-10-18):**
 
-- `cloudflared` runs on the VPS as the `ubuntu` user.
+- `cloudflared` ran on the VPS as `root`. Since M0 it runs as an unprivileged `cloudflared` user.
 - There are four tunnels: `ssh.`, `beszel.`, `coolify.`, and a catch-all that sends the apex and every other `*.vikingthe.dev` to Coolify's Traefik.
-- Everything else is blocked by both the local firewall and OVH's edge firewall. All traffic arrives through the tunnels.
+- Everything else is blocked by OVH's edge firewall. It's the only layer in front of Docker-published ports and sshd, because those bypass `ufw` (D20). All traffic arrives through the tunnels.
 
 **Consequence:** the API can trust `CF-Connecting-IP`. The scheme Coolify domains need (`http://` vs `https://`) is still settled in M1 step 11. Merging the tunnels is optional and not recommended: separate tunnels mean separate credentials.
 
-**Follow-up:** run `cloudflared` as a dedicated unprivileged system user (the packaged systemd service). On OVH images the `ubuntu` user usually has passwordless sudo, so a compromised `cloudflared` would mean root. Owner: maintainer, in M0. **ADR:** yes, 0003.
+**Done in M0:** `cloudflared` moved from `root` to an unprivileged `cloudflared` system user, under hardened systemd units. Cloudflare's packaged service runs as root, so it wasn't used. All tunnels force `http2`, because QUIC over UDP fails through OVH's firewall. **ADR:** yes, 0003.
 
 ### D10: Admin hosts on the cookie domain
 
@@ -144,7 +145,7 @@ Recommendation, detailed in ADR 0006 and applied in `api-contract.md`:
 | (b) Move them to a separate, cheap registrable domain | The cookie never reaches them. Costs a domain, which could later double as the staging domain. |
 | (c) Accept as is | Coolify's login page is exposed to the internet. |
 
-**Resolved:** (a) now (the maintainer, 2026-10-18), and (b) when a second domain is bought. **Owner:** the maintainer applies it in M0. **ADR:** recorded in 0003.
+**Resolved:** (a) now (the maintainer, 2026-10-18), and (b) when a second domain is bought. **Applied in M0 (2026-10-18):** login by emailed one-time PIN or Cloudflare. There's a Bypass rule only for `coolify.vikingthe.dev/api/v1/deploy`, which Coolify's deploy-only token still protects. **ADR:** recorded in 0003.
 
 ### D11: Authenticated E2E without staging
 
@@ -164,9 +165,7 @@ Recommendation, detailed in ADR 0006 and applied in `api-contract.md`:
 
 ### D13: Swap and container memory limits
 
-The VPS has **no swap**. With no container limits, one runaway process gets OOM-killed, or kills something else.
-
-**Recommendation:** a 4 GiB swapfile with `vm.swappiness=10`, and a memory limit on every Coolify resource, using the values in `capacity.md`. **Owner:** the maintainer applies both on the VPS.
+**Applied in M0 (2026-10-18):** a 4 GiB swapfile with `vm.swappiness=10`. The VPS had no swap before. Without container limits, one runaway process gets OOM-killed, or kills something else, so the maintainer gives every Coolify resource its limit from `capacity.md` when creating it. Claude has no Coolify access.
 
 ### D14: Contact form anti-spam
 
@@ -209,3 +208,21 @@ Accounts are wanted, but gated apps such as Stash must not be open to the whole 
 | **When** | M3, since grants are needed before Stash | Confirm. |
 
 **ADR:** no. The protections land in the admin spec (`docs/specs/admin.md`), written before its code.
+
+### D20: Host firewall for Docker-published ports
+
+**Resolved (the maintainer, 2026-10-18):** accept OVH's edge firewall as the only layer in front of Docker-published ports. External probes on IPv4 found 22, 80, 443, 6001, 6002, 8000, 8080 and 52843 (sshd) closed or filtered. The VPS has no public IPv6, only a private `fda6:…` address.
+
+**Why it's a single layer:** Docker publishes 80, 443, 8080 (Traefik), 8000 (Coolify), 6001 and 6002 on every interface, and those ports bypass `ufw`. sshd (socket-activated on port 52843) also listens on every interface. If the edge firewall were ever turned off:
+
+- 80 and 443 would let clients bypass Cloudflare and forge `CF-Connecting-IP`, which defeats the per-IP rate limits (ADR 0003 point 3);
+- Coolify on `:8000` would be reachable without going through Cloudflare Access;
+- Traefik's `:8080` dashboard and sshd would be directly reachable.
+
+**Future improvements (not scheduled):**
+
+- A systemd unit that adds a `DOCKER-USER` rule dropping new inbound connections from the public interface.
+- Stop publishing Traefik's `:8080` dashboard, or bind it to `127.0.0.1`.
+- Bind sshd's socket to `127.0.0.1:52843`, since only the tunnel uses it. OVH's KVM console stays as the fallback.
+- Bind Coolify's `8000`, `6001` and `6002` to `127.0.0.1`, if Coolify supports a lasting override.
+- Remove passwordless sudo from `ubuntu`.
