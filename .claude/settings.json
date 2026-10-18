@@ -1,0 +1,70 @@
+{
+  "model": "opus",
+  "advisorModel": "opus",
+  "permissions": {
+    "deny": [
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(**/*.pem)",
+      "Read(~/.config/vikingthedev/**)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.docker/**)",
+      "Read(~/.config/gh/**)",
+      "Read(~/.cargo/credentials.toml)",
+      "Read(~/.cargo/credentials)",
+      "Read(~/.npmrc)",
+      "Read(~/.git-credentials)",
+      "Read(~/.netrc)",
+      "Read(//proc/**)",
+      "Edit(.claude/settings.json)",
+      "Edit(.claude/settings.local.json)",
+      "Edit(~/.claude/settings.json)",
+      "Edit(scripts/with-secrets)",
+      "Bash(scripts/with-secrets *)",
+      "Bash(./scripts/with-secrets *)"
+    ]
+  },
+  "sandbox": {
+    "enabled": true,
+    "allowUnsandboxedCommands": false,
+    "failIfUnavailable": true,
+    "filesystem": {
+      "denyRead": [
+        "~/",
+        "~/.cargo/credentials.toml",
+        "~/.cargo/credentials",
+        "./**/.env",
+        "./**/.env.*",
+        "./**/*.pem"
+      ],
+      "allowRead": [".", "~/.cargo", "~/.rustup", "~/.local/share/pnpm", "~/.cache/pnpm"],
+      "denyWrite": ["./.claude", "./scripts/with-secrets"]
+    },
+    "network": {
+      "allowedDomains": [
+        "registry.npmjs.org",
+        "crates.io",
+        "index.crates.io",
+        "static.crates.io",
+        "github.com",
+        "api.github.com",
+        "objects.githubusercontent.com",
+        "ghcr.io"
+      ]
+    },
+    "credentials": {
+      "envVars": [
+        { "name": "COOLIFY_TOKEN", "mode": "deny" },
+        { "name": "CLOUDFLARE_API_TOKEN", "mode": "deny" },
+        { "name": "R2_ACCESS_KEY_ID", "mode": "deny" },
+        { "name": "R2_SECRET_ACCESS_KEY", "mode": "deny" },
+        { "name": "OAUTH_CLIENT_SECRET", "mode": "deny" },
+        { "name": "GITHUB_TOKEN", "mode": "deny" },
+        { "name": "GH_TOKEN", "mode": "deny" },
+        { "name": "NPM_TOKEN", "mode": "deny" },
+        { "name": "CARGO_REGISTRY_TOKEN", "mode": "deny" }
+      ]
+    }
+  }
+}
