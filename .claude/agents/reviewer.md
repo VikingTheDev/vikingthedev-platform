@@ -1,6 +1,6 @@
 ---
 name: reviewer
-description: Reviews the staged diff before a commit, for correctness, security, and the code-style and project rules in CLAUDE.md. Use when the advisor tool is unavailable. Read-only.
+description: Default pre-commit review of the staged diff, for correctness, security, and the code-style and project rules in CLAUDE.md. Read-only.
 tools: Read, Grep, Glob, Bash
 disallowedTools: Write, Edit
 model: opus

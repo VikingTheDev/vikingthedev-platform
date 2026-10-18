@@ -349,12 +349,12 @@ print_stdout = "warn"
   - **Claude never runs `scripts/with-secrets`.** Claude is never started from a shell with secrets exported.
 - **What enforces this** (`.claude/settings.json`; this file only describes it):
   - **The Bash sandbox is the real boundary.**
-    - It denies reads of `~/`, except the project and the toolchain caches. The cargo credentials files stay denied even inside the allowed `~/.cargo`.
+    - It denies reads of `~/`, except the project and the toolchain caches. The cargo credentials files and fnm's global `npmrc` stay denied even inside the allowed toolchain folders.
     - It denies reads of `.env*` and `*.pem` inside the project.
     - It denies writes to `.claude/` and `scripts/with-secrets`.
     - `allowUnsandboxedCommands: false` removes the escape hatch.
     - Network access is limited to package registries, GitHub and GHCR.
-  - **`Read` deny rules** cover Claude's file tools, which run outside the sandbox: `.env*`, `*.pem`, `~/.config/vikingthedev`, `~/.ssh`, `~/.aws`, `~/.docker`, `~/.config/gh`, the cargo credentials files, `~/.npmrc`, `~/.git-credentials`, `~/.netrc` and `/proc`.
+  - **`Read` deny rules** cover Claude's file tools, which run outside the sandbox: `.env*`, `*.pem`, `~/.config/vikingthedev`, `~/.ssh`, `~/.aws`, `~/.docker`, `~/.config/gh`, the cargo credentials files, `~/.npmrc` and fnm's global `npmrc`, `~/.git-credentials`, `~/.netrc` and `/proc`.
   - **`Edit` deny rules** protect all Claude settings files, so the guardrails can't be rewritten.
   - **`credentials.envVars`** strips secret variable names from sandboxed commands.
   - **The deny on `scripts/with-secrets` is only a speed bump** (`bash scripts/with-secrets` bypasses it). The rule above is what actually counts.
@@ -471,12 +471,11 @@ The main session (the orchestrator) runs **Opus 5.5 or newer** (`"model": "opus"
 No commit without an Opus-level review of exactly what is being committed.
 
 1. **Run the checks** for the change (Part 5, §8). Fix any failures first.
-2. **Stage the change,** then get a review of the staged diff from one of these:
-   - **The advisor tool**, with `advisorModel` set to `opus` (Opus 5.5 or newer).
-     - The advisor sees the conversation, not the repo. Print `git diff --cached` into the conversation immediately before calling it.
-     - This matters most for subagent-written code, which isn't otherwise in the orchestrator's context.
-   - **The `reviewer` subagent** (`.claude/agents/reviewer.md`, read-only, `model: opus`), which reads the diff itself. Use it if the advisor is unavailable, or if the diff is too large to print.
+2. **Stage the change,** then have the **`reviewer` subagent** (`.claude/agents/reviewer.md`, read-only, `model: opus`) review it. It reads `git diff --cached` itself and applies a fixed checklist.
    - **If the diff touches security-sensitive code** (as listed in the delegation table above), also run `/security-review`.
+   - **The advisor tool is off by default.** The human turns it on with `/advisor` when they want it. When it's on, it can add a second opinion, but it never replaces the `reviewer`.
+     - The advisor sees only the conversation, not the repo or `reviewer.md`.
+     - Print `git diff --cached` and the checklist from `reviewer.md` into the conversation immediately before calling it.
 3. **The review covers:**
    - correctness;
    - Part 3 (Security), including any secret, token or credential in the diff;
@@ -527,7 +526,8 @@ crates/api/               axum binary (:8080 public, :8081 internal)
 crates/openapi-gen/       writes the OpenAPI JSON
 Cargo.toml                Cargo workspace
 pnpm-workspace.yaml
-docs/adr/
+docs/adr/                 decision records, numbered
+docs/specs/               one spec per app, from docs/specs/TEMPLATE.md
 .github/workflows/
 ```
 
@@ -542,6 +542,16 @@ docs/adr/
   2. Give it its own path filter in CI.
   3. Give it its own Coolify Docker Image resource.
   4. Give its host an `/api` path domain on the Rust resource.
+
+## Specs and decisions
+
+- **Specs come before code.**
+  - Every app has `docs/specs/<app>.md`, written from `docs/specs/TEMPLATE.md`.
+  - A feature is implemented only once its spec section exists.
+  - When the behavior changes, update the spec in the same commit as the code.
+- **Open questions:** a spec's "Open questions" section must be empty before implementation starts. Ask the human to resolve each question. Never pick an answer silently.
+- **Significant decisions get a new ADR** (`docs/adr/NNNN-<slug>.md`, the next number in sequence). A decision is significant if it would be expensive to reverse: a new dependency category, an auth method, a data store, a public API shape, or a change to an architecture rule in Part 5.
+  - ADRs are never rewritten after acceptance. A later ADR supersedes the earlier one, and the earlier one's status is updated to point to it.
 
 ## 1. URLs and view transitions
 

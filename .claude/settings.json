@@ -1,6 +1,5 @@
 {
   "model": "opus",
-  "advisorModel": "opus",
   "permissions": {
     "deny": [
       "Read(**/.env)",
@@ -16,6 +15,7 @@
       "Read(~/.npmrc)",
       "Read(~/.git-credentials)",
       "Read(~/.netrc)",
+      "Read(~/.local/share/fnm/**/etc/npmrc)",
       "Read(//proc/**)",
       "Edit(.claude/settings.json)",
       "Edit(.claude/settings.local.json)",
@@ -34,11 +34,20 @@
         "~/",
         "~/.cargo/credentials.toml",
         "~/.cargo/credentials",
+        "~/.local/share/fnm/node-versions/*/installation/etc/npmrc",
         "./**/.env",
         "./**/.env.*",
         "./**/*.pem"
       ],
-      "allowRead": [".", "~/.cargo", "~/.rustup", "~/.local/share/pnpm", "~/.cache/pnpm"],
+      "allowRead": [
+        ".",
+        "~/.cargo",
+        "~/.rustup",
+        "~/.local/share/fnm",
+        "~/.cache/node/corepack",
+        "~/.local/share/pnpm",
+        "~/.cache/pnpm"
+      ],
       "denyWrite": ["./.claude", "./scripts/with-secrets"]
     },
     "network": {
