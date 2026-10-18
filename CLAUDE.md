@@ -1,749 +1,198 @@
 # CLAUDE.md
 
-This file has five parts:
+These rules are always loaded for `vikingthedev-platform`. The rule files in `.claude/rules/` load as shown:
 
-- **Part 1: Behavioral guidelines**, adapted from [multica-ai/andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpathy-skills/blob/main/CLAUDE.md).
-- **Part 2: Code style**, covering general rules plus the Astro, Svelte and Rust specifics.
-- **Part 3: Security.**
-- **Part 4: Orchestration and review.**
-- **Part 5: Project architecture rules**, taken from ADR 0001 (`docs/adr/0001-platform-topology.md`). The ADR holds the full rationale.
+| File | Covers | Loads |
+|---|---|---|
+| `security-code.md` | Security rules for code, specs and config | Always |
+| `rust.md` | Rust and the backend | For `crates/` and `Cargo.*` |
+| `frontend.md` | Astro, Svelte and the frontend | For `apps/` and `packages/` |
+| `ci-deploy.md` | CI, containers and deploys | For workflows, Dockerfiles and compose files |
 
-**Precedence:** Part 3 (Security) overrides everything else. For the other parts, where they conflict, later parts win.
+**Precedence:** Security overrides everything. Otherwise, the more specific rule wins. The rationale lives in `docs/adr/`.
 
-**Tradeoff:** these guidelines favor caution over speed. Use judgment on trivial tasks.
+## Working style
 
----
+Adapted from [andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpathy-skills/blob/main/CLAUDE.md). These rules favor caution over speed; use judgment on trivial tasks.
 
-# Part 1: Behavioral guidelines
+- **Think first.**
+  - State your assumptions. If you're uncertain, ask.
+  - If a request has more than one reading, present them instead of picking one silently.
+  - If a simpler approach exists, say so, and push back when it's warranted.
+  - If something is unclear, stop and name what's unclear.
+  - If a task would break a security rule or an architecture invariant, name the rule and ask before proceeding.
+- **Keep it simple.** Write the minimum code that solves the problem.
+  - No unrequested features, configurability or single-use abstractions.
+  - No handling for cases that can't happen.
+  - If 200 lines could be 50, rewrite it.
+- **Make surgical changes.** Touch only what the task needs.
+  - Don't reformat, refactor or "improve" adjacent code. Match the existing style.
+  - Mention unrelated dead code instead of deleting it. Remove only what your own change left unused.
+  - Every changed line should trace back to the request.
+- **Work toward checkable goals.**
+  - Turn each task into one: "fix the bug" becomes "write a failing test, then make it pass".
+  - For multi-step work, state the plan as `step → verify: check`, using the checks below.
 
-## 1. Think before coding
+## Code style
 
-**Don't assume. Don't hide confusion. Surface tradeoffs.**
+**Code should be short, and its logic should read without comments.** If code needs a comment to explain *what* it does, rename or extract until it doesn't.
 
-Before implementing:
-
-- **Assumptions:** state them explicitly. If you're uncertain, ask.
-- **Several interpretations:** present them. Don't pick one silently.
-- **A simpler approach exists:** say so, and push back when it's warranted.
-- **Something is unclear:** stop, name what's confusing, and ask.
-- **A task would break a rule in Part 3 or Part 5:** say which rule, and ask before proceeding.
-
-## 2. Simplicity first
-
-**Write the minimum code that solves the problem. Nothing speculative.**
-
-- No features beyond what was asked.
-- No abstractions for single-use code.
-- No "flexibility" or "configurability" that wasn't requested.
-- No error handling for impossible scenarios.
-- If you wrote 200 lines and it could be 50, rewrite it.
-
-Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
-
-## 3. Surgical changes
-
-**Touch only what you must. Clean up only your own mess.**
-
-When editing existing code:
-
-- Don't "improve" adjacent code, comments or formatting.
-- Don't refactor things that aren't broken.
-- Match the existing style, even if you'd write it differently.
-- If you notice unrelated dead code, mention it. Don't delete it.
-
-When your changes leave things unused:
-
-- Remove the imports, variables and functions that *your* changes made unused.
-- Don't remove pre-existing dead code unless asked.
-
-**The test:** every changed line should trace directly to the request.
-
-## 4. Goal-driven execution
-
-**Define success criteria. Loop until they're verified.**
-
-Turn tasks into goals you can check:
-
-- "Add validation" → "Write tests for invalid inputs, then make them pass."
-- "Fix the bug" → "Write a test that reproduces it, then make it pass."
-- "Refactor X" → "Make sure the tests pass before and after."
-
-For multi-step tasks, state a brief plan:
-
-```
-1. [Step] → verify: [check]
-2. [Step] → verify: [check]
-3. [Step] → verify: [check]
-```
-
-Strong success criteria let you work through the loop on your own. Weak ones ("make it work") need constant clarification. Use the checks in Part 5, §8 as your verification steps.
-
-**These guidelines are working if** diffs contain fewer unnecessary changes, fewer rewrites are caused by overcomplication, and clarifying questions come before implementation instead of after mistakes.
-
----
-
-# Part 2: Code style
-
-**Goal: short code whose logic you can read without comments.** When code needs a comment to explain *what* it does, rename or extract until it doesn't.
-
-## General
-
-**Naming**
-
-- Use full words. The only abbreviations allowed are the standard ones: `id`, `url`, `db`, `http`.
-- Functions are verbs (`create_session`, `formatDate`).
-- Booleans read as questions (`is_expired`, `hasAccess`).
-- A name should make the comment above it unnecessary.
-
-**Functions**
-
-- One function does one thing. Extract once a block needs a name to be understood.
-- **Shape:**
-  - Use guard clauses and early returns instead of nesting. Keep to at most two levels of nesting.
-  - Keep parameter lists short. Past three parameters, pass a typed struct or object.
-  - Prefer pure functions. Keep I/O and side effects at the edges: handlers, endpoints and event handlers.
-
-**Values**
-
-- No magic numbers or strings. Use named constants, for example `SESSION_TTL`.
-- **Types do the checking:** make illegal states unrepresentable.
-  - In Rust, use enums and newtypes.
-  - In TypeScript, use discriminated unions and literal types.
-  - Never validate at runtime what a type could guarantee.
-
-**Organization**
-
-- Organize code by feature (`auth/`, `sessions/`), not by layer (`models/`, `utils/`).
-  - Never create a `utils` or `helpers` dumping ground.
-  - Shared code gets a module named for what it does.
-- Delete code rather than commenting it out. Git keeps the history.
-
-**Comments**
-
-- Write a comment only when the code can't be made self-explanatory. Typical cases:
+- **Names**
+  - Use full words. The only allowed abbreviations are `id`, `url`, `db` and `http`.
+  - Name functions as verbs and booleans as questions (`is_expired`).
+- **Functions**
+  - Each function does one job.
+  - Use guard clauses and early returns, with at most two levels of nesting.
+  - More than three parameters means a typed struct or object instead.
+  - Keep functions pure where possible, with side effects at the edges.
+- **Values**
+  - Use named constants, not magic numbers or strings.
+  - Make illegal states unrepresentable: enums and newtypes in Rust, discriminated unions in TypeScript. Never check at runtime what a type can guarantee.
+- **Organization**
+  - Organize by feature (`auth/`, `sessions/`), not by layer. No `utils` or `helpers` dumping grounds.
+  - Delete code instead of commenting it out.
+- **Comments** are only for:
   - a non-obvious *why*;
   - a workaround, with a link to the issue;
-  - a constraint imposed from outside, such as a spec rule or a browser quirk.
-- Keep them to one line where possible. Never restate the code.
-  - Bad: `// increment counter`
-  - Good: `// Valkey TTL refresh is throttled to 1/h to avoid a write per request`
-- `TODO`s carry a reason, for example `// TODO(perf): batch these lookups once >1k users`.
-- Doc comments go only on public items whose behavior isn't obvious from the signature. One sentence, plus an `# Errors` line where it applies.
+  - a constraint from outside the code, such as a spec rule or a browser quirk.
 
-**Formatting is the tools' job.** Never hand-format, and never argue style the formatter decides.
+  Keep them to one line, and never restate the code: write `// Valkey TTL refresh is throttled to 1/h to avoid a write per request`, never `// increment counter`.
 
-- **JS/TS/Svelte/Astro:** Prettier, with `prettier-plugin-svelte` and `prettier-plugin-astro`.
-- **Lint:** ESLint, with `typescript-eslint`, `eslint-plugin-svelte` and `eslint-plugin-astro`.
-- **Rust:** `rustfmt` with default settings.
+  - Every `TODO` carries a reason: `TODO(perf): …`.
+  - Doc comments go only on public items whose behavior the signature doesn't show.
+- **Formatting is the tools' job:**
+  - Prettier, with the Svelte and Astro plugins.
+  - ESLint, with `typescript-eslint`, `eslint-plugin-svelte` and `eslint-plugin-astro`.
+  - `rustfmt` with default settings.
 
-## TypeScript and Astro
+## Security (overrides everything)
 
-**TypeScript setup**
+The repo must be safe to make public at any moment. Assume an attacker has read all code, config and history. Only secrets are secret, and nothing may rely on obscurity.
 
-- `tsconfig.json` extends `astro/tsconfigs/strictest`, with `verbatimModuleSyntax: true`.
-- Use `import type` for type-only imports.
-- **Types:**
-  - No `any`. Use `unknown` and narrow it.
-  - No non-null `!` outside tests.
-  - No TypeScript `enum`. Use string-literal unions.
-
-**Components and props**
-
-- Type component props with an `interface Props` in the frontmatter.
-- Type `App.Locals` (for example `user`) in `src/env.d.ts`.
-- Import within an app through a path alias (`@/…` via `compilerOptions.paths`), not deep `../../..` chains. Import packages by name (`@vikingthedev/ui`).
-
-**Astro vs. Svelte**
-
-- **Default to `.astro` components.** They ship no JS.
-- Use a Svelte component only for an interactive island.
-- Hydrate with `client:visible` or `client:idle`. Use `client:load` only for above-the-fold interactivity.
-
-**Environment variables:** use the `astro:env` schema (`envField`), never raw `import.meta.env` or `process.env` in app code.
-
-- Secrets are `context: "server", access: "secret"`.
-- Set `validateSecrets: true`.
-
-**Images:** use `<Image>` or `<Picture>` from `astro:assets`, with explicit dimensions. This protects LCP and CLS.
-
-**Content:** structured content (blog, docs) lives in content collections with a Zod schema in `src/content.config.ts`.
-
-**Frontmatter**
-
-- Data fetching and shaping happen there.
-- Templates only render. Keep logic out of the markup.
-
-## Svelte 5
-
-Sources: [Svelte best practices](https://svelte.dev/docs/svelte/best-practices) and the legacy-feature migrations.
-
-**Runes only.** No legacy syntax:
-
-| Don't use | Use instead |
-|---|---|
-| `export let` | `$props()` |
-| `$:` | `$derived` and `$effect` |
-| `<slot>` | `{#snippet}` and `{@render}` |
-| `use:action` | `{@attach}` |
-| `<svelte:component>` | A dynamic component |
-| The `class:` directive | clsx-style arrays and objects in `class` |
-| Stores, for new code | `$state` |
-
-**State**
-
-- Use `$state` only for values that must be reactive.
-- Use `$state.raw` for large objects that are reassigned rather than mutated, such as API responses.
-- **Derived values:**
-  - Compute derived values with `$derived`, never by setting state inside an `$effect`.
-  - Pass `$derived` an expression. Use `$derived.by` when the logic needs a block.
-  - Keep `$derived` free of side effects.
-- **`$effect` is an escape hatch**, used only to sync with something outside Svelte.
-  - User actions belong in event handlers.
-  - Window and document listeners belong in `<svelte:window>` and `<svelte:document>`.
-  - Don't wrap effects in `if (browser)`. Effects don't run on the server.
-
-**Props:** treat them as values that can change. Anything computed from props is `$derived`.
-
-**Templates**
-
-- `{#each}` is always keyed by a stable ID, never by index.
-- Use `{#key}` sparingly.
-- Use event attributes (`onclick={…}`), not `on:click`.
-
-**Styling**
-
-- Pass values from JS into CSS with `style:--name={value}`.
-- Let parents style children through CSS custom properties.
-- Use `:global` only for third-party markup.
-
-**Sharing state**
-
-- Share state through context created with `createContext`, never through module-level state, which leaks between users during SSR.
-- For shared reactive logic, use classes with `$state` fields.
-
-**`packages/ui` components**
-
-- One component per file, with a typed `Props`.
-- No data fetching. Components receive data, they don't load it.
-- No app-specific imports.
-
-## Rust
-
-**Toolchain and lints**
-
-- Use edition 2024 with `rustfmt` defaults.
-- Configure lints once in the workspace:
-
-```toml
-[workspace.lints.rust]
-unsafe_code = "forbid"
-
-[workspace.lints.clippy]
-pedantic = { level = "warn", priority = -1 }
-module_name_repetitions = "allow"
-must_use_candidate = "allow"
-unwrap_used = "warn"
-expect_used = "warn"
-dbg_macro = "warn"
-todo = "warn"
-print_stdout = "warn"
-```
-
-- **CI:** `cargo clippy --workspace --all-targets -- -D warnings`.
-- **`#[allow]`:** every one is local, with a short reason, for example `#[allow(clippy::cast_possible_truncation, reason = "ids < 2^32")]`.
-
-**Errors**
-
-- Domain errors are `thiserror` enums.
-- The API crate has one `AppError` that implements `IntoResponse`, so handlers return `Result<T, AppError>` and use `?`.
-  - Never leak internal error text to clients.
-  - Log it, and return a stable error code instead.
-- `anyhow` is allowed only in binaries' startup code and in tooling (`openapi-gen`).
-- **No `unwrap` or `expect` in request paths.** `expect("reason")` is fine at startup, where failing fast is correct.
-
-**Naming and types** (from the [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/checklist.html))
-
-- **Casing:** follow RFC 430 (C-CASE).
-- **Conversion names:** `as_`, `to_`, `into_` (C-CONV).
-- **Getters:** no `get_` prefix (C-GETTER).
-- **Conversion traits:** implement `From`, `TryFrom` and `AsRef` rather than ad-hoc constructors (C-CONV-TRAITS).
-- **Newtypes:** wrap domain values (`UserId`, `SessionToken`, `EmailAddress`) and validate in their constructor (C-NEWTYPE).
-- **Argument types:** use an enum instead of a `bool` or `Option` argument whose meaning isn't obvious at the call site (C-CUSTOM-TYPE).
-
-**Code shape**
-
-- Prefer iterator chains over manual loops when they read better.
-- Borrow rather than clone. Take `&str` or `&[T]` in parameters, and return owned types.
-- Match exhaustively on your own enums. No `_ =>` catch-all that would silently accept new variants.
-
-**axum**
-
-- **Handlers stay thin:** extract, call a domain function, map the result to a response. Business logic never lives in a handler.
-- **Routes:** each feature module exposes `pub fn routes() -> Router<AppState>`, and `main` merges them.
-- **Shared state:** `AppState` holds clients that are cheap to clone (the Valkey pool, the DB pool, config behind an `Arc`), and is passed with `State<AppState>`.
-- **DTOs:**
-  - Request and response DTOs are separate from database rows and domain types.
-  - DTOs derive `serde` and `utoipa::ToSchema`.
-  - Request DTOs use `#[serde(deny_unknown_fields)]`.
-  - JSON fields keep serde's default snake_case.
-
-**Async**
-
-- Never block inside async code. CPU-heavy work such as password hashing goes in `tokio::task::spawn_blocking`.
-- Never hold a lock across `.await`.
-
-**Logging:** use `tracing` only, never `println!`.
-
-- Put `#[tracing::instrument(skip_all, fields(…))]` on handlers and domain entry points.
-- Never log tokens, passwords or full cookies.
-
-**Tests**
-
-- Unit tests sit in `#[cfg(test)] mod tests` next to the code.
-- HTTP-level tests live in `crates/api/tests/` and drive the `Router` directly with `tower::ServiceExt::oneshot`.
-
-**Database:** the PostgreSQL access library is not decided yet. Ask before choosing one.
-
----
-
-# Part 3: Security
-
-**Security is paramount.** The repo must be safe to make public at any moment.
-
-- Assume an attacker has read every line of code, config and history. Only secrets are secret.
-- Nothing may rely on obscurity.
-
-## Secrets
-
-- **Never in git.** No secrets in source, config, tests, fixtures, docs, commit messages or history. A secret that is ever committed is burned: rotate it, don't just delete it.
-- **Never in front of Claude.**
-  - Claude never reads, prints, echoes, logs or asks for a secret value.
-  - If a task seems to need one, stop and ask the human to do that step.
-  - If a secret appears in output anyway, stop, say so, and ask the human to rotate it.
-
-**Production**
-
-- **Where secrets live:** only in Coolify environment variables, injected at runtime.
-- **Never at build time:** not as build variables, not as Docker `ARG`s, and never baked into image layers.
-- **Images:** built in CI and contain zero secrets.
-
-**GitHub Actions**
-
-- **The only secrets it holds:**
+- **Secrets never go in git.** That covers source, config, tests, fixtures, docs, commit messages and history. A committed secret is burned: rotate it, don't just delete it.
+- **Secrets never go in front of Claude.**
+  - Never read, print, echo, log or ask for a secret value.
+  - If a task needs one, stop and ask the human to do that step.
+  - If a secret appears in output, stop, say so, and ask the human to rotate it.
+- **Production secrets** live only in Coolify environment variables, injected at runtime. Never as build variables, Docker `ARG`s or in image layers.
+- **GitHub Actions** holds only:
   - `COOLIFY_TOKEN`, with deploy permission only;
   - the Coolify webhook URLs;
-  - `CLOUDFLARE_API_TOKEN`, scoped to cache purge on the zone.
-- **Scope:** store them as *environment* secrets on `staging` and `production`. Jobs triggered by pull requests never see them.
-- **Registry:** GHCR uses the built-in `GITHUB_TOKEN`.
+  - `CLOUDFLARE_API_TOKEN`, scoped to cache purge.
 
-**Local development** uses no real secrets by default.
+  They are environment secrets on `staging` and `production`, so pull request jobs never see them. GHCR uses `GITHUB_TOKEN`.
+- **Local development uses no real secrets.**
+  - `compose.dev.yaml` runs PostgreSQL, Valkey and MinIO on `127.0.0.1`.
+  - Their throwaway values come from the committed `dev.env`, which Claude may read and use.
+  - Those values are never reused anywhere else.
+- **Real development credentials** are rare. Each must be development-only, least-privilege and revocable.
+  - They live in `~/.config/vikingthedev/secrets.env` (mode `600`).
+  - Only the human loads them, with `scripts/with-secrets <cmd>` in a separate terminal.
+  - Never use `!` for this: its output reaches Claude.
+  - Claude never runs that script, and is never started from a shell with secrets exported.
+- **DNS hygiene:** every `*.vikingthe.dev` host receives the session cookie. Never point a subdomain at a third-party service, and delete records for retired services.
+- **Committed env files:** only `dev.env`, and `env.example`, which lists variable names with placeholder values. `.gitignore` covers `.env`, `.env.*` and `*.pem`.
+- **Dependencies**
+  - Keep them few, and justify each new one in its commit message.
+  - Commit `Cargo.lock` and `pnpm-lock.yaml`.
+  - pnpm runs install scripts only for packages listed in `onlyBuiltDependencies`.
+- **Guardrails:** `.claude/settings.json` enforces these rules, and `docs/claude-code-setup.md` explains them.
+  - Never weaken or work around the settings. Propose changes, and let the human apply them.
+  - Never bypass a check without asking: no `--no-verify`, no `continue-on-error` on a security step, no `#[allow]` on a security lint.
 
-- **Throwaway values:** `compose.dev.yaml` runs PostgreSQL, Valkey and MinIO (S3-compatible, standing in for R2) bound to `127.0.0.1`.
-  - Their values live in the committed `dev.env`.
-  - These values are not secrets and must never be reused anywhere else.
-  - Claude may read `dev.env` and run the dev stack with it.
-- **Real development credentials**, if one is ever needed (for example a dev OAuth app or a dev R2 bucket):
-  - Each is development-only, least-privilege, and revocable.
-  - It lives **outside the repo** in `~/.config/vikingthedev/secrets.env` (mode `600`).
-  - The **human** loads it with `scripts/with-secrets <command>`, in a **separate terminal**. Never via the `!` prefix: `!` commands run unsandboxed, and their output lands in Claude's context.
-  - **Claude never runs `scripts/with-secrets`.** Claude is never started from a shell with secrets exported.
-- **What enforces this** (`.claude/settings.json`; this file only describes it):
-  - **The Bash sandbox is the real boundary.**
-    - It denies reads of `~/`, except the project and the toolchain caches. The cargo credentials files and fnm's global `npmrc` stay denied even inside the allowed toolchain folders.
-    - It denies reads of `.env*` and `*.pem` inside the project.
-    - It denies writes to `.claude/` and `scripts/with-secrets`.
-    - `allowUnsandboxedCommands: false` removes the escape hatch.
-    - Network access is limited to package registries, GitHub and GHCR.
-  - **`Read` deny rules** cover Claude's file tools, which run outside the sandbox: `.env*`, `*.pem`, `~/.config/vikingthedev`, `~/.ssh`, `~/.aws`, `~/.docker`, `~/.config/gh`, the cargo credentials files, `~/.npmrc` and fnm's global `npmrc`, `~/.git-credentials`, `~/.netrc` and `/proc`.
-  - **`Edit` deny rules** protect all Claude settings files, so the guardrails can't be rewritten.
-  - **`credentials.envVars`** strips secret variable names from sandboxed commands.
-  - **The deny on `scripts/with-secrets` is only a speed bump** (`bash scripts/with-secrets` bypasses it). The rule above is what actually counts.
-- **Never weaken these settings.** Propose changes to them and let the human apply them.
+## Orchestration and review
 
-**Untested assumptions:** the human checks these once, whenever the setup or the settings change.
+The main session runs Opus 5.5 or newer and owns the plan, the integration and every commit. Delegate by difficulty:
 
-- **Secret files:** put a sentinel value in a dummy `.env`. Both Claude's Read tool and a sandboxed `cat .env` must fail.
-- **Other processes:** a sandboxed `cat /proc/<pid>/environ` of a process the human started must fail.
-- **Toolchain:** `pnpm install`, `cargo build` and `docker compose -f compose.dev.yaml up` must work inside the sandbox.
-  - The toolchain `allowRead` paths are guesses.
-  - Docker socket access from the sandbox is untested.
-- **Requirements:** the sandbox needs `bubblewrap` and `socat`. With `failIfUnavailable: true`, Claude Code won't start without them.
-
-**Example files:** use `env.example` (no leading dot), which lists variable names with placeholder values. It is the only env-shaped file besides `dev.env` that may be committed. `.gitignore` covers `.env`, `.env.*` and `*.pem`.
-
-## Code
-
-**Input and data access**
-
-- **Validate at the boundary:** every external input (HTTP body, query, header, cookie, file, environment) is parsed into a validated type at the edge. Interior code never sees raw input.
-- **Queries:** parameterized SQL only. Never build SQL, shell commands, URLs or file paths by string concatenation from input.
-- **Authorization:**
-  - It's checked in the domain layer for every resource access (to prevent IDOR), not just "is logged in".
-  - Deny by default.
-
-**Authentication**
-
-- **Passwords:** hash with Argon2id (the `argon2` crate) inside `spawn_blocking`.
-- **Tokens:** generate them with an OS CSPRNG (`rand::rngs::OsRng` or `getrandom`).
-- **Crypto:** never roll your own.
-- **Session tokens:**
-  - Issue a new token on login and on any privilege change.
-  - On logout, delete it server-side.
-- **Rate limiting:** login, signup, password reset and any endpoint that sends email are rate-limited per IP and per account (counters in Valkey).
-- **Account enumeration:** error messages don't reveal whether an account exists ("invalid email or password").
-
-**Output and headers**
-
-- **HTML injection:** Svelte and Astro escape output by default. `{@html}` and `set:html` are forbidden unless the input is sanitized server-side, and every use is flagged in review.
-- **Security headers** on every HTML response:
-  - a strict `Content-Security-Policy`:
-    - no `unsafe-inline` or `unsafe-eval` for scripts;
-    - inline scripts (including Astro's island hydration scripts) allowed by **hash, not nonce**, because prerendered HTML is cached at Cloudflare's edge and a per-request nonce can't work there;
-    - use Astro's built-in CSP hash generation (*unverified:* the exact Astro 7 config key);
-    - `frame-ancestors 'none'`, sent as an HTTP header from Traefik or Cloudflare, because browsers ignore `frame-ancestors` in a `<meta>` CSP;
-  - `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`;
-  - `X-Content-Type-Options: nosniff`;
-  - `Referrer-Policy: strict-origin-when-cross-origin`;
-  - a restrictive `Permissions-Policy`.
-- **Errors:** clients get a stable error code, never stack traces, SQL or internal messages.
-- **Logs:** never log tokens, passwords, cookies, `Authorization` headers or secret env values. Keep PII to the minimum needed.
-
-**Uploads and storage**
-
-- R2 buckets are private by default.
-- Uploads are checked for size and content type server-side.
-- Downloads go through short-lived presigned URLs.
-
-**Rust:** `unsafe_code = "forbid"` is set workspace-wide.
-
-## Supply chain and CI
-
-- **Dependencies:**
-  - Keep them few. Every new dependency is justified in the commit message.
-  - Lockfiles (`Cargo.lock`, `pnpm-lock.yaml`) are committed.
-  - pnpm runs no dependency install scripts unless they're explicitly listed in `onlyBuiltDependencies`.
-- **Scanning, on every push:**
-  - `cargo deny check` (advisories, licenses, sources);
-  - `pnpm audit --prod`;
-  - `gitleaks` on the full history.
-  - Dependabot opens update PRs.
-- **Workflows:**
-  - Start from `permissions: {}`, and grant each job only what it needs.
-  - Pin third-party actions to a full commit SHA.
-  - Never use `pull_request_target`.
-  - Never interpolate `${{ github.event.* }}` text into `run:` scripts. Pass it through `env:` instead.
-- **Containers:**
-  - Distroless images, run as a non-root user.
-  - Read-only root filesystem where possible.
-  - No package managers or shells in runtime images.
-- **GitHub repo settings:**
-  - secret scanning with push protection;
-  - Dependabot alerts;
-  - private vulnerability reporting, plus a `SECURITY.md`;
-  - branch protection on `main` that requires CI to pass.
-- **Never** bypass hooks or checks (`--no-verify`, `continue-on-error` on a security step, `#[allow]` on a security lint) without asking.
-
----
-
-# Part 4: Orchestration and review
-
-## Models
-
-The main session (the orchestrator) runs **Opus 5.5 or newer** (`"model": "opus"` in `.claude/settings.json`). The orchestrator owns the plan, the integration and every commit.
-
-**Delegate to subagents by difficulty:**
-
-| Model | Use for | Examples |
-|---|---|---|
-| **Haiku 5.5** | Mechanical, fully specified work where a mistake is easy to spot | File and code search, collecting call sites, renames, applying formatter or lint fixes, summarizing logs and CI output, boilerplate from an exact template |
-| **Sonnet 5.5** | Well-scoped implementation inside one feature, with a clear spec and a check to run | A new endpoint or component following an existing pattern, writing tests, refactors covered by tests, docs |
-| **Opus 5.5+** (the orchestrator, or an `opus` subagent) | Anything that needs judgment | Design and cross-cutting changes. Non-obvious debugging. **All security-sensitive code:** auth, sessions, CSRF, crypto, secrets handling, CI workflows, Dockerfiles, Coolify and Cloudflare config. All reviews. |
-
-**Delegation rules**
-
-- **Spawn only when it pays.** Do it inline if that's faster than writing the brief. Run subagents in parallel only when their tasks are independent.
-- **Every brief is self-contained:** the goal, the files involved, the constraints (point to the relevant parts of this file), and the exact check that proves it's done.
-- **Subagents never commit, push or deploy.** Their output is unreviewed until the orchestrator has checked it and the review below has passed.
-- **Escalate on doubt:** if a Haiku or Sonnet task turns out to touch security-sensitive code, take it back to Opus.
-
-## Review before every commit
-
-No commit without an Opus-level review of exactly what is being committed.
-
-1. **Run the checks** for the change (Part 5, §8). Fix any failures first.
-2. **Stage the change,** then have the **`reviewer` subagent** (`.claude/agents/reviewer.md`, read-only, `model: opus`) review it. It reads `git diff --cached` itself and applies a fixed checklist.
-   - **If the diff touches security-sensitive code** (as listed in the delegation table above), also run `/security-review`.
-   - **The advisor tool is off by default.** The human turns it on with `/advisor` when they want it. When it's on, it can add a second opinion, but it never replaces the `reviewer`.
-     - The advisor sees only the conversation, not the repo or `reviewer.md`.
-     - Print `git diff --cached` and the checklist from `reviewer.md` into the conversation immediately before calling it.
-3. **The review covers:**
-   - correctness;
-   - Part 3 (Security), including any secret, token or credential in the diff;
-   - Part 2 (Code style);
-   - Part 5 (Project rules).
-4. **Fix every correctness or security finding.**
-   - If you disagree with a finding, tell the human why. Don't silently skip it.
-   - Re-review after any non-trivial fix.
-5. **Commit only when the review has no open correctness or security findings.** Report any style findings you chose not to act on in your reply.
-
-This applies equally to code that subagents wrote.
-
-**Enforcement:** this part is guidance. To make the review mandatory, add a `PreToolUse` hook on `git commit` that blocks the commit unless a review marker exists for the current staged-tree hash.
-
----
-
-# Part 5: Project: the vikingthe.dev suite
-
-## What this is
-
-A suite of websites, maintained by one person, in the monorepo `vikingthedev-platform`. Workspace packages use the `@vikingthedev/` scope, for example `@vikingthedev/ui`.
-
-- **Apps:** the homepage at `vikingthe.dev`, plus about 5–6 apps at `<name>.vikingthe.dev`. Each app is released on its own.
-- **Primary metric:** performance.
-- **Hard requirement:** a session started on the homepage must survive navigation to every subdomain app.
-
-**Stack**
-
-| Layer | Choice |
+| Model | Use for |
 |---|---|
-| Frontend | Astro 7 + Svelte 5 (`@astrojs/svelte`, `@astrojs/node`) |
-| Backend | Rust (axum 0.8) |
-| Data | PostgreSQL and Valkey, each a separate Coolify resource |
-| Object storage | Cloudflare R2 |
-| Deploys | Coolify on Docker |
-| CI | GitHub Actions |
-| CDN | DNS proxied through Cloudflare |
+| Haiku 5.5 | Mechanical, fully specified work: search, collecting call sites, renames, lint and format fixes, summarizing logs, boilerplate from a template |
+| Sonnet 5.5 | Scoped work inside one feature, with a spec and a check: endpoints or components that follow an existing pattern, tests, refactors covered by tests, docs |
+| Opus 5.5+ | Anything needing judgment: design, cross-cutting changes, hard debugging, all reviews, and **all security-sensitive code** (auth, sessions, CSRF, crypto, secrets, CI, Dockerfiles, Coolify and Cloudflare config) |
 
-## Repository layout
+- **When to delegate:** spawn a subagent only when that's faster than doing it inline, and run subagents in parallel only for independent tasks.
+- **Briefs** are self-contained: the goal, the files, the constraints (cite the rule files), and the check that proves the task is done.
+- **Limits:** subagents never commit, push or deploy. If a Haiku or Sonnet task turns out to be security-sensitive, take it back to Opus.
+
+**Before every commit,** including commits of code a subagent wrote:
+
+1. Run the checks for the change, and fix any failures.
+2. Stage the change, then have the `reviewer` subagent (read-only, Opus) review the staged diff. Security-sensitive diffs also get `/security-review`.
+3. Fix every correctness or security finding, or tell the human why not. Re-review after any non-trivial fix. Report the style findings you didn't act on.
+4. Commit only when no correctness or security findings remain open.
+
+**The advisor tool is off by default.** The human enables it with `/advisor`.
+- When it's on, it gives a second opinion, never a replacement for `reviewer`.
+- It sees only the conversation. Before calling it, print the staged diff and the checklist from `reviewer.md`.
+
+## Project
+
+A suite of websites, built by one maintainer: the homepage at `vikingthe.dev`, plus about 5–6 apps at `<name>.vikingthe.dev`. Each app is released on its own.
+
+- **Performance is the primary metric.**
+- A session started on the homepage must survive navigation to every app.
+
+**Stack:** Astro 7 + Svelte 5 (`@astrojs/node`); Rust (axum 0.8); PostgreSQL and Valkey as separate Coolify resources; Cloudflare R2; Coolify on Docker; GitHub Actions; Cloudflare in front of DNS. Workspace packages use the `@vikingthedev/` scope.
 
 ```
-apps/homepage/            Astro + Svelte
-apps/<app>/               one per subdomain
-packages/ui/              Svelte component library (workspace:*, consumed as source)
-packages/api-types/       generated from OpenAPI; committed; never hand-edited
-packages/config/          shared tsconfig, size-limit and Lighthouse CI presets
-crates/api/               axum binary (:8080 public, :8081 internal)
-crates/openapi-gen/       writes the OpenAPI JSON
-Cargo.toml                Cargo workspace
-pnpm-workspace.yaml
-docs/adr/                 decision records, numbered
-docs/specs/               one spec per app, from docs/specs/TEMPLATE.md
-.github/workflows/
+apps/<app>/            Astro + Svelte, one per host (apps/homepage/ first)
+packages/ui/           Svelte component library, consumed as source, never published
+packages/api-types/    generated from OpenAPI, committed, never hand-edited
+packages/config/       shared tsconfig, size-limit and Lighthouse CI presets
+crates/api/            axum binary (:8080 public, :8081 internal)
+crates/openapi-gen/    writes the OpenAPI JSON
+docs/adr/              numbered decision records
+docs/specs/            one spec per app, from TEMPLATE.md
 ```
 
-- **One monorepo:** pnpm and Cargo workspaces.
-  - No Turborepo or moon yet.
-  - If a typical PR's CI run passes about 5 minutes, propose moon rather than Turborepo.
-- **`packages/ui`:**
-  - It's consumed as source and never published. No Changesets, no build step.
-  - Components must tree-shake, so no barrel files with side effects.
-- **New app:**
-  1. Add `apps/<name>/`.
-  2. Give it its own path filter in CI.
-  3. Give it its own Coolify Docker Image resource.
-  4. Give its host an `/api` path domain on the Rust resource.
+The repo is one monorepo, with pnpm and Cargo workspaces. There is no Turborepo or moon yet. Propose moon if a typical PR's CI run takes longer than about 5 minutes.
 
-## Specs and decisions
+**Architecture invariants** (from ADR 0001; details are in the scoped rules)
+
+- **Hosting:** apps live on subdomains of `vikingthe.dev`.
+- **Session:** one session cookie, `__Secure-vt_sid` with `Domain=vikingthe.dev`. Rust alone creates, validates and deletes sessions.
+- **API routing:** each host's `/api` routes to the Rust service, so browser calls are same-origin. No CORS, and no `api.` subdomain.
+- **View transitions:** native cross-document view transitions within an app, and none across subdomains (the spec forbids cross-origin transitions). No `<ClientRouter />`.
+- **Rendering:** content pages are prerendered and cached at the edge. Only logged-in pages render on demand.
+- **Deploys:** CI builds the images and Coolify pulls them. Coolify never builds, and Auto Deploy is off.
+- **Staging:** it lives on a separate registrable domain, never under `vikingthe.dev`.
+- **Known risks:** ADR 0001 lists them, each with a fallback, and the scoped rules repeat the relevant ones. If you hit one, use its fallback and record the outcome in a new ADR.
+
+**New app:** add `apps/<name>/`, a CI path filter for it, a Coolify Docker Image resource for it, and an `/api` path domain for its host on the Rust resource.
+
+### Specs and decisions
 
 - **Specs come before code.**
-  - Every app has `docs/specs/<app>.md`, written from `docs/specs/TEMPLATE.md`.
-  - A feature is implemented only once its spec section exists.
-  - When the behavior changes, update the spec in the same commit as the code.
-- **Open questions:** a spec's "Open questions" section must be empty before implementation starts. Ask the human to resolve each question. Never pick an answer silently.
-- **Significant decisions get a new ADR** (`docs/adr/NNNN-<slug>.md`, the next number in sequence). A decision is significant if it would be expensive to reverse: a new dependency category, an auth method, a data store, a public API shape, or a change to an architecture rule in Part 5.
-  - ADRs are never rewritten after acceptance. A later ADR supersedes the earlier one, and the earlier one's status is updated to point to it.
+  - Each app's spec is `docs/specs/<app>.md`, created from `TEMPLATE.md`.
+  - Implement a feature only once its spec section exists.
+  - When behavior changes, update the spec in the same commit.
+- **Open questions:** a spec's open questions must be resolved before implementation starts. Ask the human, and never pick an answer silently.
+- **ADRs:** a decision that would be expensive to reverse gets a new ADR, `docs/adr/NNNN-<slug>.md`, numbered next in sequence. That covers a new category of dependency, an auth method, a data store, a public API shape, or a change to an architecture invariant.
+  - Accepted ADRs are never rewritten. A later ADR supersedes them, and the superseded ADR's status is updated to point to its successor.
 
-## 1. URLs and view transitions
-
-- **App placement:**
-  - Apps live on subdomains of `vikingthe.dev`.
-  - **Never** put an app on a different registrable domain. That breaks the shared session.
-- **Transitions inside an app:**
-  - Use native cross-document view transitions, set with `@view-transition { navigation: auto; }` in the shared layout from `packages/ui`.
-  - **Do not add Astro's `<ClientRouter />`.** It ships JS on every page.
-- **Transitions between apps:** navigation from one subdomain to another never animates. The spec requires the same origin. Don't try to work around it.
-  - If an app needs animated entry from the homepage, the sanctioned fix is to mount it at `vikingthe.dev/<app>`.
-  - Ask before doing that.
-- **Firefox:** it has no cross-document view transitions. Accept instant navigation there and don't polyfill.
-
-## 2. Sessions and auth
-
-**The cookie** is exactly:
-
-```
-__Secure-vt_sid=<base64url 256-bit random>; Domain=vikingthe.dev; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=2592000
-```
-
-- **Prefix:** not `__Host-`, which forbids `Domain`.
-- **SameSite:** not `Strict`, because it breaks arrivals from external links.
-- **Token:** an opaque token. No JWTs.
-
-**Who owns sessions**
-
-- Rust is the only place that creates, validates or deletes sessions.
-- Astro never reads Valkey directly.
-
-**Valkey layout**
-
-- **Session record:** `sess:{sha256(token)}` is a hash of `{user_id, created, last_seen, ua_hash}`.
-  - It expires after 30 days.
-  - Refresh the expiry at most once per hour.
-- **Per-user index:** `user_sess:{user_id}` is a set of that user's sessions, used for revoke-all.
-- **Hashing:** never store the raw token.
-- **Persistence:** Valkey runs with AOF on. Treat it as state, not as a disposable cache.
-
-**Astro middleware** (`src/middleware.ts`)
-
-- **On-demand routes:** forward the `Cookie` header to `GET http://<api-internal>:8081/session`.
-  - Use a 50 ms timeout. A timeout means anonymous.
-  - Set `Astro.locals.user`.
-- **Prerendered routes:** do nothing.
-
-**Logout:** `POST /api/auth/logout` deletes the Valkey key and expires the cookie with the same `Domain`.
-
-## 3. API routing and CSRF
-
-- **One path domain per host:** the Rust service gets an `/api` path domain on every app host (`https://<host>/api`).
-  - Browser code calls only its own origin's `/api`.
-  - **Don't introduce `api.vikingthe.dev` or CORS.** That's the documented fallback, and it needs explicit approval.
-- **Two listeners:**
-  - `:8080` is public, behind Traefik.
-  - `:8081` is internal, on the Docker network only, and never gets a domain. SSR and server islands call `:8081`.
-- **CSRF middleware** in Rust covers POST, PUT, PATCH and DELETE on `:8080`, and runs **before** auth.
-  - Require `Sec-Fetch-Site: same-origin`.
-  - If that header is absent, require an exact `Origin` allowlist **and** `Content-Type: application/json`.
-  - Reject `same-site` with a 403.
-- **Internal listener:** `:8081` skips Fetch Metadata checks.
-- **Writes from the browser:** every write, including login and logout, is a JSON `fetch()`. Never use native `<form>` posts to the API.
-- **Astro security settings:**
-  - Keep `security.checkOrigin` on.
-  - Set `security.allowedDomains` to the app's own host.
-- **DNS hygiene:** never point a `*.vikingthe.dev` record at a third-party service. Every subdomain receives the session cookie.
-
-## 4. The API contract
-
-- `utoipa` derives OpenAPI from the axum handlers.
-- `openapi-typescript` generates `packages/api-types`.
-- `openapi-fetch` is the client.
-- **Changing a request or response shape:**
-  1. Change the Rust code.
-  2. Regenerate the types.
-  3. Fix the frontends.
-  4. Commit all three together.
-- **Never hand-edit `packages/api-types`.**
-
-## 5. Performance budgets
-
-Treat a budget regression as a failing test, not a judgment call.
-
-| Metric | Field target (p75) | CI gate (Lighthouse, mobile, staging) |
-|---|---|---|
-| LCP | ≤ 1.8 s | ≤ 2.0 s |
-| INP | ≤ 100 ms | TBT ≤ 100 ms (stands in for INP, which a lab run can't measure) |
-| CLS | ≤ 0.05 | ≤ 0.05 |
-| TTFB, static HTML from the Cloudflare cache | ≤ 200 ms | ≤ 200 ms |
-| TTFB, server-rendered route | ≤ 400 ms | ≤ 400 ms |
-| JS per route (gzip) | content ≤ 15 KB, app ≤ 75 KB | `size-limit` plus Lighthouse `resource-summary:script:size` |
-| Backend | p50 ≤ 10 ms, p99 ≤ 50 ms for reads, session check p99 ≤ 5 ms | `oha` against staging, run nightly |
-
-**Rendering defaults**
-
-| Route | Rendering | Caching |
-|---|---|---|
-| Content (homepage, marketing, blog, docs) | Prerendered (`output: 'static'`) | Cloudflare edge |
-| User-specific fragments on static pages | Server island (`server:defer`) or a client fetch to `/api/me` | Static shell stays cacheable |
-| Logged-in app pages | On demand | `private, no-store` |
-
-- Don't make a content page render on demand just to show user state.
-- **Hydration:** hydrate Svelte islands only when they need interactivity. Prefer `client:visible` or `client:idle` over `client:load`.
-- **Field data:** the `web-vitals` library reports to `/api/rum`.
-
-## 6. Caching
-
-- **Hashed assets** (`/_astro/*`): `Cache-Control: public, max-age=31536000, immutable`.
-- **Prerendered HTML:** a Cloudflare Cache Rule with an Edge TTL. It's purged after each production deploy.
-- **Cloudflare bypass:** `/api/*` and `/_server-islands/*`.
-- **Responses that depend on the user:** `Cache-Control: private, no-store`. Never set `Set-Cookie` on a response meant to be cached.
-- **R2, public objects:** served from a custom domain (for example `assets.vikingthe.dev`).
-- **R2, private objects:** short-lived presigned URLs from Rust, never cached.
-
-## 7. Build and deploy
-
-- **Build:** GitHub Actions builds the images and pushes them to GHCR, tagged `:<sha>` plus a moving `:staging` or `:prod` tag.
-- **Coolify:**
-  - Coolify does **not** build. Each service is a Docker Image resource.
-  - Auto Deploy is off.
-  - Deploys are triggered only from Actions, via the authenticated Deploy Webhook.
-- **Images:**
-  - **Rust:** `cargo-chef` plus the BuildKit cache, on a distroless `cc` base.
-  - **Astro:** `pnpm deploy --filter <app> --prod`.
-- **Health endpoints:** every service exposes one that returns the git SHA it is running.
-- **Pipeline, per changed target:**
-  1. Checks
-  2. Build and push the image
-  3. Staging webhook
-  4. Wait for the health endpoint to report the new SHA
-  5. Playwright and Lighthouse CI
-  6. Production webhook
-  7. Cloudflare purge
-- **Path filters** (`dorny/paths-filter`):
-
-  | Target | Paths |
-  |---|---|
-  | `api` | `crates/**`, `Cargo.toml`, `Cargo.lock` |
-  | `contract` | `crates/**`, `packages/api-types/**` |
-  | `<app>` | `apps/<app>/**`, `packages/**`, `pnpm-lock.yaml` |
-
-  Don't add `crates/**` to the app filters.
-- **Staging:**
-  - Lives on a separate registrable domain (for example `vikingthe-staging.dev`) with the same layout as production.
-  - Never create staging hosts under `vikingthe.dev`. They would receive the production cookie.
-
-## 8. Checks (use these as verification steps)
+### Checks
 
 | Change | Verify with |
 |---|---|
-| Any JS or Svelte code | `pnpm -r check` (`astro check` and `svelte-check`), `pnpm lint`, `pnpm format:check`, and the affected app's tests |
-| Rust code | `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`, and `cargo test --workspace` |
-| API shapes | The contract check, below |
+| JS, TS or Svelte | `pnpm -r check` (`astro check`, `svelte-check`), `pnpm lint`, `pnpm format:check`, the affected app's tests |
+| Rust | `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` |
+| API shapes | The contract check in `.claude/rules/rust.md` |
 | Bundle size | `size-limit` in the affected app |
-| Dependencies or any commit | `gitleaks git --staged` (or `gitleaks protect --staged` on older versions), `cargo deny check`, `pnpm audit --prod` |
-| Session, auth or CSRF | Playwright on staging: the cookie has the right attributes; the session shows up in a subdomain app's server-rendered HTML; logout makes `/api/me` return 401 on every host; CSRF `same-site` and `cross-site` requests get 403 while a `same-origin` control request succeeds |
-| Transitions | A transition fires within an app and does not fire across subdomains. The test listens for `pagereveal` and reads `event.viewTransition`. |
-
-**The contract check:**
-
-```sh
-cargo run -p openapi-gen > packages/api-types/openapi.json
-pnpm --filter api-types generate
-git diff --exit-code packages/api-types
-pnpm -r check
-```
+| Every commit | `gitleaks git --staged` (`gitleaks protect --staged` on older versions); also `cargo deny check` and `pnpm audit --prod` once those workspaces exist |
+| Session, auth or CSRF | Playwright on staging: cookie attributes; the session appears in a subdomain app's server-rendered HTML; after logout, `/api/me` is 401 on every host; `same-site` and `cross-site` CSRF requests get 403 while a `same-origin` control succeeds |
+| Transitions | The `pagereveal` test, which reads `event.viewTransition`: a transition fires within an app and not across subdomains |
 
 These commands describe the planned setup. If one doesn't exist yet, say so instead of inventing a substitute.
 
-## 9. Known risks (accepted without verification)
+### Stop and ask before
 
-If you hit one of these, use the fallback and record the outcome in the ADR.
-
-| Risk | Fallback |
-|---|---|
-| Coolify might not route `/api` and `/` on the same host to different resources. | `api.vikingthe.dev` with CORS and an Origin allowlist. Ask first. |
-| How a Docker Image resource reaches the API's internal `:8081` is unconfirmed. | Attach the resources to a shared Docker network manually |
-| `pnpm deploy` in pnpm 10 may need `inject-workspace-packages=true`. | Set it |
-| Astro's cache headers on server-island responses are unknown. | Keep the Cloudflare bypass rule |
-| Whether `tower-sessions` hashes session IDs at rest is unknown. | Hand-roll the session store on `fred` |
-
-## 10. When to stop and ask
-
-Ask before any change that would:
-
-- put an app off `vikingthe.dev`, or move an app from a subdomain to a path;
-- change the session cookie's attributes, or have Astro talk to Valkey directly;
-- add CORS, `api.vikingthe.dev` or `<ClientRouter />`;
-- have Coolify build images, or turn on Auto Deploy;
-- split the monorepo, or publish `packages/ui`;
-- loosen a performance budget;
-- touch `.claude/settings.json`, secret handling, CSP or security headers, or GitHub workflow permissions;
-- add a dependency that runs install scripts, or any new third-party GitHub Action;
-- commit without a completed review.
+- moving an app off `vikingthe.dev`, or from a subdomain to a path;
+- changing the session cookie, or letting Astro talk to Valkey directly;
+- adding CORS, an `api.` subdomain or `<ClientRouter />`;
+- letting Coolify build images, or turning on Auto Deploy;
+- splitting the monorepo, or publishing `packages/ui`;
+- loosening a performance budget;
+- touching `.claude/settings.json`, secret handling, the CSP or security headers, or workflow permissions;
+- adding a dependency that runs install scripts, or a new third-party GitHub Action;
+- choosing the PostgreSQL library, which hasn't been decided yet;
+- committing without a completed review.

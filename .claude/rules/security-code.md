@@ -1,0 +1,39 @@
+# Security rules for code
+
+These rules are always loaded, because they also apply to specs, proxy config and Cloudflare settings. They override everything except the security section of CLAUDE.md.
+
+## Input and access
+
+- **Validate at the boundary.** Parse every external input into a validated type at the edge. This covers bodies, queries, headers, cookies, files and environment. Interior code never sees raw input.
+- **No string-built commands.** Use parameterized SQL only. Never build SQL, shell commands, URLs or file paths by concatenating input.
+- **Check authorization** in the domain layer on every resource access, not just "is logged in". This prevents IDOR. Deny by default.
+
+## Authentication
+
+- **Passwords:** hash with Argon2id (the `argon2` crate), inside `spawn_blocking`.
+- **Tokens:** generate them with an OS CSPRNG (`rand::rngs::OsRng` or `getrandom`). Never roll your own crypto.
+- **Sessions:** issue a new session token on login and on any privilege change. On logout, delete it server-side.
+- **Rate limits:** login, signup, password reset and anything that sends email are rate-limited per IP and per account, with counters in Valkey.
+- **Errors:** never reveal whether an account exists ("invalid email or password").
+
+## Output
+
+- **Raw HTML:** `{@html}` and `set:html` are forbidden unless the input is sanitized server-side. Flag every use in review.
+- **Security headers** on every HTML response:
+  - **`Content-Security-Policy`:**
+    - no `unsafe-inline` or `unsafe-eval` for scripts;
+    - inline scripts, including Astro's island hydration scripts, allowed **by hash, not nonce**, because edge-cached HTML can't carry a per-request nonce;
+    - hashes come from Astro's built-in CSP hash support (the exact Astro 7 config key is unverified);
+    - `frame-ancestors 'none'` is sent as an HTTP header from Traefik or Cloudflare, because browsers ignore it in a `<meta>` CSP.
+  - `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`
+  - `X-Content-Type-Options: nosniff`
+  - `Referrer-Policy: strict-origin-when-cross-origin`
+  - a restrictive `Permissions-Policy`
+- **Errors:** clients get a stable error code, never stack traces, SQL or internal messages.
+- **Logs:** never log tokens, passwords, cookies, `Authorization` headers or secret values. Keep PII to the minimum.
+
+## Storage
+
+- R2 buckets are private by default.
+- The server checks the size and content type of every upload.
+- Downloads go through short-lived presigned URLs.
