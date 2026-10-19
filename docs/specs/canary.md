@@ -28,6 +28,8 @@ The maintainer and automated checks. Anyone can open it; there's no login method
   - [ ] In a real browser, a logged-in homepage page sends a `no-cors` `text/plain` POST to canary's `/api/auth/logout`; afterwards the session still works on both hosts.
 - As a visitor, I can go back to the homepage.
   - [ ] A link to the homepage exists, and following it fires no view transition (`pagereveal` with no `event.viewTransition`).
+- As the deploy pipeline, I can see which build is live.
+  - [ ] `GET /health` returns `{ "status": "ok", "sha": "<git sha>" }` with `Cache-Control: no-store`; the SHA is the image's build argument, and `dev` outside CI builds (step 4 gate, 2026-10-19).
 - As a visitor using assistive technology, I can use the page.
   - [ ] axe reports no serious or critical violations.
 
@@ -36,6 +38,7 @@ The maintainer and automated checks. Anyone can open it; there's no login method
 | Route | Purpose | Rendering | Auth required |
 |---|---|---|---|
 | `/` | Shows "anonymous" or the user's display name, a "Log out" button when logged in, and a link to the homepage | On demand | No |
+| `/health` | The build's git SHA, for the deploy wait (`ci-deploy.md`) | On demand | No |
 
 ## Data
 

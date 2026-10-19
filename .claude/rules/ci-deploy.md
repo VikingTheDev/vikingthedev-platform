@@ -34,7 +34,8 @@ paths:
 - Runtime images have no package manager and no shell.
 - No secrets in `ARG`s, `ENV` or any layer.
 - **Rust images:** `cargo-chef` with the BuildKit cache, on a distroless `cc` base.
-- **Astro images:** `pnpm deploy --filter <app> --prod`. In pnpm 10 this may need `inject-workspace-packages=true`. That's unverified, so set it if the build fails.
+- **Astro images:** one shared `docker/astro.Dockerfile` with `--build-arg APP=<app>`, built with `pnpm deploy --filter <app> --prod`. On pnpm 12.14 this works without `inject-workspace-packages=true` (step 4, 2026-10-19), but no app depended on a workspace package yet, so recheck when one first does.
+- **Base images** are pinned by tag and digest.
 
 ## Build and deploy
 

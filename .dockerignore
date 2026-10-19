@@ -1,0 +1,13 @@
+# Keeps local state and anything secret out of the build context.
+.git
+**/.claude
+.idea
+.vscode
+**/.env
+**/.env.*
+**/*.pem
+**/node_modules
+**/dist
+**/.astro
+target
+docs

@@ -30,6 +30,8 @@ Anyone. There's no login method until M3. Sessions come from `POST /api/test/log
 - As a visitor, I can move between pages with a view transition.
   - [ ] Navigating from `/` to `/account` fires a view transition (`pagereveal` with `event.viewTransition` set).
   - [ ] A link to canary exists, and following it fires none.
+- As the deploy pipeline, I can see which build is live.
+  - [ ] `GET /health` returns `{ "status": "ok", "sha": "<git sha>" }` with `Cache-Control: no-store`; the SHA is the image's build argument, and `dev` outside CI builds (step 4 gate, 2026-10-19).
 - As a visitor using assistive technology, I can use every page.
   - [ ] axe reports no serious or critical violations on `/` and `/account`.
 
@@ -39,6 +41,7 @@ Anyone. There's no login method until M3. Sessions come from `POST /api/test/log
 |---|---|---|---|
 | `/` | Placeholder front page: "vikingthe.dev" and "Under construction.", with a session server island | Prerendered, plus a server island | No |
 | `/account` | Shows the session user, or "not logged in" | On demand | No |
+| `/health` | The build's git SHA, for the deploy wait (`ci-deploy.md`) | On demand | No |
 
 ## Data
 
