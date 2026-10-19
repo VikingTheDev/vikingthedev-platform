@@ -1,4 +1,9 @@
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::{
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+    sync::Arc,
+};
+
+use api::{AppState, config::Config, sessions::SessionStore};
 
 use tokio::net::TcpListener;
 use tracing_subscriber::EnvFilter;
@@ -13,13 +18,21 @@ async fn main() -> anyhow::Result<()> {
         .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()))
         .init();
 
+    let config = Config::from_environment()?;
+    let state = AppState {
+        sessions: SessionStore::connect(&config.valkey_url)?,
+        config: Arc::new(config),
+    };
+
     let public = TcpListener::bind(PUBLIC_ADDRESS).await?;
     let internal = TcpListener::bind(INTERNAL_ADDRESS).await?;
     tracing::info!(%PUBLIC_ADDRESS, %INTERNAL_ADDRESS, "listening");
 
     tokio::try_join!(
-        axum::serve(public, api::public_router()).with_graceful_shutdown(shutdown_signal()),
-        axum::serve(internal, api::internal_router()).with_graceful_shutdown(shutdown_signal()),
+        axum::serve(public, api::public_router(state.clone()))
+            .with_graceful_shutdown(shutdown_signal()),
+        axum::serve(internal, api::internal_router(state))
+            .with_graceful_shutdown(shutdown_signal()),
     )?;
     Ok(())
 }

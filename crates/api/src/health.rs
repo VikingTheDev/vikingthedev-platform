@@ -2,6 +2,8 @@ use axum::{Json, Router, http::header, response::IntoResponse, routing::get};
 use serde::Serialize;
 use utoipa::ToSchema;
 
+use crate::AppState;
+
 const GIT_SHA: &str = match option_env!("GIT_SHA") {
     Some(sha) => sha,
     None => "dev",
@@ -19,7 +21,7 @@ enum HealthStatus {
     Ok,
 }
 
-pub fn routes() -> Router {
+pub fn routes() -> Router<AppState> {
     Router::new().route("/health", get(health))
 }
 

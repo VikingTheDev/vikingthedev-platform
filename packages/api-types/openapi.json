@@ -9,6 +9,51 @@
     "version": "0.1.0"
   },
   "paths": {
+    "/api/auth/logout": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Log out",
+        "description": "Revokes every session cookie sent and expires the cookie. Idempotent: 204 with or without a live session.",
+        "operationId": "logout",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LogoutRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Logged out"
+          },
+          "403": {
+            "description": "Cross-origin write",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Session store unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/health": {
       "get": {
         "tags": [
@@ -50,6 +95,46 @@
         "type": "string",
         "enum": [
           "ok"
+        ]
+      },
+      "LogoutRequest": {
+        "type": "object",
+        "description": "The contract's `{}` body; the handler ignores it, so logout stays idempotent.",
+        "additionalProperties": false
+      },
+      "Problem": {
+        "type": "object",
+        "required": [
+          "type",
+          "title",
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "title": {
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ProblemType"
+          }
+        }
+      },
+      "ProblemType": {
+        "type": "string",
+        "enum": [
+          "https://vikingthe.dev/problems/unauthenticated",
+          "https://vikingthe.dev/problems/reauthentication_required",
+          "https://vikingthe.dev/problems/forbidden",
+          "https://vikingthe.dev/problems/not_found",
+          "https://vikingthe.dev/problems/validation",
+          "https://vikingthe.dev/problems/idempotency_conflict",
+          "https://vikingthe.dev/problems/rate_limited",
+          "https://vikingthe.dev/problems/unavailable",
+          "https://vikingthe.dev/problems/internal"
         ]
       }
     }

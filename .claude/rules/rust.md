@@ -111,14 +111,16 @@ __Secure-vt_sid=<base64url 256-bit random>; Domain=vikingthe.dev; Path=/; Secure
 
 **Valkey storage**
 
-- **Session record:** `sess:{sha256(token)}` is a hash of `{user_id, created, last_seen, ua_hash}`.
-  - It expires after 30 days.
-  - Refresh the expiry at most once an hour.
+- **Session record:** `sess:{sha256(token)}` is a hash of `{user_id, created_at, last_seen_at, last_auth_at}`, with timestamps in Unix seconds. `last_auth_at` feeds ADR 0004's recent-login check. No `ua_hash`: nothing uses it, and user agents change on every browser update (M1 gate, 2026-10-19).
+  - It expires 30 days after login, matching the cookie's `Max-Age`, and is never extended (step 2 gate, 2026-10-19).
+  - `last_seen_at` is written at most once an hour.
 - **Per-user index:** `user_sess:{user_id}` is a set used to revoke all of a user's sessions.
 - **Hashing:** never store the raw token.
 - **Persistence:** Valkey runs with AOF on. It holds state, not a disposable cache.
 
 **Logout:** `POST /api/auth/logout` deletes the Valkey key and expires the cookie with the same `Domain`.
+
+**Several session cookies** on one request mean one was planted from a sibling subdomain or through XSS. Logout revokes every well-formed token sent. Session loading treats more than one distinct token as unauthenticated, so a planted cookie can't take over a login (step 2 review, 2026-10-19).
 
 ## API routing and CSRF
 

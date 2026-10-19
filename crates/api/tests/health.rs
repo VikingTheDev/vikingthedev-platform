@@ -1,3 +1,5 @@
+mod common;
+
 use std::error::Error;
 
 use axum::{
@@ -29,7 +31,8 @@ async fn get_health(
 
 #[tokio::test]
 async fn public_health_reports_ok_and_is_never_cached() -> Result<(), Box<dyn Error>> {
-    let (status, cache_control, body) = get_health(api::public_router(), "/api/health").await?;
+    let (status, cache_control, body) =
+        get_health(api::public_router(common::test_state()?), "/api/health").await?;
 
     assert_eq!(status, StatusCode::OK);
     assert_eq!(cache_control.as_deref(), Some("no-store"));
@@ -40,7 +43,8 @@ async fn public_health_reports_ok_and_is_never_cached() -> Result<(), Box<dyn Er
 
 #[tokio::test]
 async fn internal_health_reports_ok() -> Result<(), Box<dyn Error>> {
-    let (status, _, body) = get_health(api::internal_router(), "/health").await?;
+    let (status, _, body) =
+        get_health(api::internal_router(common::test_state()?), "/health").await?;
 
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["status"], "ok");

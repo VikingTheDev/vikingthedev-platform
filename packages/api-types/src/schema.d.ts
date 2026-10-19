@@ -4,6 +4,26 @@
  */
 
 export interface paths {
+    "/api/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Log out
+         * @description Revokes every session cookie sent and expires the cookie. Idempotent: 204 with or without a live session.
+         */
+        post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -30,6 +50,16 @@ export interface components {
         };
         /** @enum {string} */
         HealthStatus: "ok";
+        /** @description The contract's `{}` body; the handler ignores it, so logout stays idempotent. */
+        LogoutRequest: Record<string, never>;
+        Problem: {
+            /** Format: int32 */
+            status: number;
+            title: string;
+            type: components["schemas"]["ProblemType"];
+        };
+        /** @enum {string} */
+        ProblemType: "https://vikingthe.dev/problems/unauthenticated" | "https://vikingthe.dev/problems/reauthentication_required" | "https://vikingthe.dev/problems/forbidden" | "https://vikingthe.dev/problems/not_found" | "https://vikingthe.dev/problems/validation" | "https://vikingthe.dev/problems/idempotency_conflict" | "https://vikingthe.dev/problems/rate_limited" | "https://vikingthe.dev/problems/unavailable" | "https://vikingthe.dev/problems/internal";
     };
     responses: never;
     parameters: never;
@@ -39,6 +69,46 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LogoutRequest"];
+            };
+        };
+        responses: {
+            /** @description Logged out */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Cross-origin write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Session store unavailable */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     health: {
         parameters: {
             query?: never;

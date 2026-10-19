@@ -49,6 +49,7 @@ interface Page<T> {
 ```
 
 - **Validation errors** add an `errors` extension: `{ field: string; code: string }[]`. `code` is a stable snake_case value, for example `too_long`.
+- **Problem types** are all published in the OpenAPI schema as a closed enum, so adding one is a deliberate contract change. Clients still give every switch on `type` a default branch, because an app can run against a newer API (step 2 review, 2026-10-19).
 - **Every response** carries `X-Request-Id`. On problems, `instance` is the same ID as `urn:uuid:<id>`.
 - **User-dependent responses** send `Cache-Control: private, no-store`.
 
