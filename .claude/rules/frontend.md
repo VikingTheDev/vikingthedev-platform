@@ -130,7 +130,8 @@ Source: [Svelte best practices](https://svelte.dev/docs/svelte/best-practices).
 **Astro security settings**
 
 - Keep `security.checkOrigin` on.
-- Set `security.allowedDomains` to the app's own host.
+- Set `security.allowedDomains` to the app's own host, plus its `*.vikingthe.test` host for the CI stack (ADR 0002). Astro reads it at build time, so one image serves both.
+- Set `session: false`: Rust alone creates sessions, and `@astrojs/node` otherwise enables Astro's own.
 
 ## Performance budgets
 

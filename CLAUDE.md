@@ -82,7 +82,7 @@ The repo must be safe to make public at any moment. Assume an attacker has read 
 
   They are environment secrets on `production` (and on `staging`, if one is ever added; ADR 0002), so pull request jobs never see them. GHCR uses `GITHUB_TOKEN`.
 - **Local development uses no real secrets.**
-  - `compose.dev.yaml` runs PostgreSQL, Valkey and MinIO on `127.0.0.1`.
+  - `compose.dev.yaml` runs PostgreSQL and Valkey on `127.0.0.1`, plus an S3-compatible store once an app uses R2.
   - Their throwaway values come from the committed `dev.env`, which Claude may read and use.
   - Those values are never reused anywhere else.
 - **Real development credentials** are rare. Each must be development-only, least-privilege and revocable.
@@ -95,7 +95,7 @@ The repo must be safe to make public at any moment. Assume an attacker has read 
 - **Dependencies**
   - Keep them few, and justify each new one in its commit message.
   - Commit `Cargo.lock` and `pnpm-lock.yaml`.
-  - pnpm runs install scripts only for packages listed in `onlyBuiltDependencies`.
+  - pnpm runs install scripts only for packages approved in `allowBuilds` (pnpm 11+; `strictDepBuilds` fails the install otherwise). Approve builds only with `pnpm approve-builds` or a manual `allowBuilds` entry. Never run `pnpm approve` or `pnpm permissions approve`, and never use the `permissions` setting: they also link a package's agent skills into `.claude/skills`, and `permissions` overrides `allowBuilds`.
 - **Guardrails:** `.claude/settings.json` enforces these rules, and `docs/claude-code-setup.md` explains them.
   - Never weaken or work around the settings. Propose changes, and let the human apply them.
   - Never bypass a check without asking: no `--no-verify`, no `continue-on-error` on a security step, no `#[allow]` on a security lint.
