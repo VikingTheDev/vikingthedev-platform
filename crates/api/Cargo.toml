@@ -21,6 +21,10 @@ tracing-subscriber.workspace = true
 utoipa.workspace = true
 uuid.workspace = true
 
+[features]
+# Only the CI-stack image enables this (ADR 0002 point 3).
+e2e = []
+
 [dev-dependencies]
 redis.workspace = true
 serde_json.workspace = true

@@ -12,7 +12,7 @@ type Timestamp = string;  // RFC 3339, UTC, "Z" suffix
 
 interface User {
   id: UserId;
-  display_name: string;
+  display_name: string;   // 1–64 characters; no control characters, bidi overrides or isolates, zero-width characters, direction marks or BOM; no surrounding whitespace (maintainer, 2026-10-19)
   created_at: Timestamp;
 }
 
@@ -62,7 +62,7 @@ Writes need `Sec-Fetch-Site: same-origin`, or else an allowlisted `Origin` plus 
 | GET | `/api/health` | — | 200 `{ status: "ok", sha: string }` | No | M1 | Also used by the deploy wait and the uptime check. `no-store` |
 | GET | `/api/me` | — | 200 `User` · 401 | Session | M1 | |
 | POST | `/api/auth/logout` | `{}` | 204, plus an expiring `Set-Cookie` with `Domain` | No | M1 | Idempotent. 204 with or without a session |
-| POST | `/api/test/login` | `{ user_id: UserId }` | 204, plus `Set-Cookie` | No | M1 | **Exists only in builds with the `e2e` feature** (D11). Production returns 404 |
+| POST | `/api/test/login` | `{ display_name: string }` | 204, plus `Set-Cookie` · 422 | No | M1 | **Exists only in builds with the `e2e` feature** (D11). Production returns 404. Each call creates a new user, so every test gets its own (step 3 gate, 2026-10-19). Not in the published OpenAPI, which is built without `e2e`. Its 422 has no `errors` extension |
 | GET | `/api/status` | — | 200 `{ services: { name: string; state: "up" \| "degraded" \| "down"; checked_at: Timestamp }[] }` | No | M5 | Cached for 30 s in the API |
 | POST | `/api/contact` | `{ name: string; email: string; message: string; website: string }` and an `Idempotency-Key` header | 202 · 422 · 429 | No | M5 | `website` is the honeypot: it must be empty, and a filled value gets a silent 202 |
 | POST | `/api/rum` | `{ name: "LCP" \| "INP" \| "CLS" \| "TTFB"; value: number; route: string; host: string }[]` | 204 · 422 | No | M5 | Sent with `fetch` and `keepalive`. No identifiers. Rate-limited. At most 10 entries. `host` must be a known host. `route` is a path only (no query or fragment), at most 200 characters, so no PII from query strings is stored |

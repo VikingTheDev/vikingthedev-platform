@@ -1,9 +1,11 @@
 use std::{
+    io::Write,
     net::{IpAddr, Ipv4Addr, SocketAddr},
     sync::Arc,
 };
 
-use api::{AppState, config::Config, sessions::SessionStore};
+use api::{AppState, cli::Command, config::Config, sessions::SessionStore, users::DisplayName};
+use time::OffsetDateTime;
 
 use tokio::net::TcpListener;
 use tracing_subscriber::EnvFilter;
@@ -15,15 +17,24 @@ const INTERNAL_ADDRESS: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPEC
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
         .json()
+        // Logs go to stderr so `issue-session`'s stdout carries only the cookie value.
+        .with_writer(std::io::stderr)
         .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()))
         .init();
 
+    let command = Command::parse(std::env::args().skip(1))?;
     let config = Config::from_environment()?;
     let state = AppState {
         sessions: SessionStore::connect(&config.valkey_url)?,
         config: Arc::new(config),
     };
+    match command {
+        Command::Serve => serve(state).await,
+        Command::IssueSession(display_name) => issue_session(&state, &display_name).await,
+    }
+}
 
+async fn serve(state: AppState) -> anyhow::Result<()> {
     let public = TcpListener::bind(PUBLIC_ADDRESS).await?;
     let internal = TcpListener::bind(INTERNAL_ADDRESS).await?;
     tracing::info!(%PUBLIC_ADDRESS, %INTERNAL_ADDRESS, "listening");
@@ -34,6 +45,15 @@ async fn main() -> anyhow::Result<()> {
         axum::serve(internal, api::internal_router(state))
             .with_graceful_shutdown(shutdown_signal()),
     )?;
+    Ok(())
+}
+
+async fn issue_session(state: &AppState, display_name: &DisplayName) -> anyhow::Result<()> {
+    let token =
+        api::users::register_with_session(&state.sessions, display_name, OffsetDateTime::now_utc())
+            .await?;
+    // The cookie value is this command's only output; `print_stdout` guards the server against stray prints.
+    writeln!(std::io::stdout().lock(), "{}", token.to_cookie_value())?;
     Ok(())
 }
 

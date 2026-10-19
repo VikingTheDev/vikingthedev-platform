@@ -1,3 +1,4 @@
+pub mod cli;
 pub mod config;
 pub mod csrf;
 pub mod health;
@@ -21,12 +22,14 @@ pub struct AppState {
 pub fn public_router(state: AppState) -> Router {
     let api = Router::new()
         .merge(health::routes())
-        .merge(sessions::routes())
-        // route_layer wraps only the routes merged above it, so it must stay last.
-        .route_layer(middleware::from_fn_with_state(
-            state.clone(),
-            csrf::reject_cross_origin_writes,
-        ));
+        .merge(sessions::routes());
+    #[cfg(feature = "e2e")]
+    let api = api.merge(sessions::test_login::routes());
+    // route_layer wraps only the routes merged above it, so it must stay last.
+    let api = api.route_layer(middleware::from_fn_with_state(
+        state.clone(),
+        csrf::reject_cross_origin_writes,
+    ));
     Router::new().nest("/api", api).with_state(state)
 }
 
