@@ -7,3 +7,4 @@ packages/api-types/openapi.json
 packages/api-types/src/schema.d.ts
 # Hand-written prose; Prettier would rewrap it.
 *.md
+e2e/test-results/

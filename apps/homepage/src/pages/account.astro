@@ -1,22 +1,22 @@
 ---
+import { PLATFORM_URL } from "astro:env/server";
+import Layout from "@vikingthedev/ui/Layout.astro";
+
 export const prerender = false;
 
 Astro.response.headers.set("Cache-Control", "private, no-store");
 const user = Astro.locals.user?.user;
+const canaryUrl = new URL(PLATFORM_URL);
+canaryUrl.hostname = `canary.${canaryUrl.hostname}`;
 ---
 
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="robots" content="noindex" />
-    <title>Account · vikingthe.dev</title>
-  </head>
-  <body>
-    <main>
-      <h1>Account</h1>
-      {user ? <p>Logged in as {user.display_name}.</p> : <p>Not logged in.</p>}
-    </main>
-  </body>
-</html>
+<Layout title="Account · vikingthe.dev">
+  <main>
+    <h1>Account</h1>
+    {user ? <p>Logged in as {user.display_name}.</p> : <p>Not logged in.</p>}
+    <nav>
+      <a href="/">Home</a>
+      <a href={canaryUrl.href}>Canary</a>
+    </nav>
+  </main>
+</Layout>

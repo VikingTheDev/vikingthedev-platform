@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Runs the Playwright suite against the CI stack (ADR 0002). Needs Docker, openssl and a `pnpm install`.
+set -euo pipefail
+
+readonly COMPOSE=(docker compose --file compose.ci.yaml)
+readonly CERT_DIR=ci-stack/certs
+
+cd "$(dirname "$0")/.."
+
+# A fresh self-signed certificate per run; nothing trusts it, so Playwright ignores HTTPS errors.
+mkdir -p "$CERT_DIR"
+openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -days 1 \
+  -subj "/CN=vikingthe.test" \
+  -addext "subjectAltName=DNS:vikingthe.test,DNS:*.vikingthe.test" \
+  -keyout "$CERT_DIR/key.pem" -out "$CERT_DIR/cert.pem"
+
+# The suite runs as the caller, so it can write its results into the mounted repo.
+export UID
+GID="$(id -g)"
+export GID
+mkdir -p e2e/test-results
+
+trap '"${COMPOSE[@]}" down --volumes' EXIT
+"${COMPOSE[@]}" up --build --detach --wait
+"${COMPOSE[@]}" run --rm playwright "$@"

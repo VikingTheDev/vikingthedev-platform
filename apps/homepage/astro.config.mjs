@@ -24,6 +24,13 @@ export default defineConfig({
         url: true,
         default: "http://127.0.0.1:8081",
       }),
+      // Read at run time, so one image links to its sibling apps in production and in the CI stack.
+      PLATFORM_URL: envField.string({
+        context: "server",
+        access: "secret",
+        url: true,
+        default: "https://vikingthe.dev",
+      }),
     },
     validateSecrets: true,
   },

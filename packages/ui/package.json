@@ -1,0 +1,8 @@
+{
+  "name": "@vikingthedev/ui",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./Layout.astro": "./src/Layout.astro"
+  }
+}

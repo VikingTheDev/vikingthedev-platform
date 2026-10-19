@@ -1,0 +1,28 @@
+---
+// Every page carries noindex until M5, so the placeholder stays out of search results (the specs).
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>{title}</title>
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>
+
+<style is:global>
+  /* Same-origin only: browsers never animate across subdomains (frontend.md). */
+  @view-transition {
+    navigation: auto;
+  }
+</style>

@@ -1,0 +1,109 @@
+# The CI stack (ADR 0002), run with scripts/ci-stack. Its values are throwaway and used nowhere else.
+name: vikingthedev-ci
+
+services:
+  traefik:
+    image: traefik:v3.7.13@sha256:24841fe2de7304c149343d877d2923b4c8800a38ba015dea9174c23b20e344a0
+    command:
+      - --entrypoints.websecure.address=:443
+      - --providers.file.filename=/etc/traefik/dynamic.yaml
+      - --ping=true
+    volumes:
+      - ./ci-stack/traefik.yaml:/etc/traefik/dynamic.yaml:ro
+      - ./ci-stack/certs:/certs:ro
+    networks:
+      default:
+        # The suite's container resolves the app hosts to Traefik, so no host needs /etc/hosts entries.
+        aliases:
+          - vikingthe.test
+          - canary.vikingthe.test
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 2s
+      retries: 15
+    depends_on:
+      - api
+      - homepage
+      - canary
+
+  api:
+    # Built with the e2e test login, so this image is loaded locally and never pushed (ADR 0002 point 3).
+    image: vikingthedev-api:ci
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+      args:
+        FEATURES: e2e
+    environment:
+      DATABASE_URL: postgres://ci@postgres:5432/ci
+      VALKEY_URL: redis://valkey:6379
+      COOKIE_DOMAIN: vikingthe.test
+      ALLOWED_ORIGINS: https://vikingthe.test,https://canary.vikingthe.test
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+
+  homepage:
+    image: vikingthedev-homepage:ci
+    build:
+      context: .
+      dockerfile: docker/astro.Dockerfile
+      args:
+        APP: homepage
+    environment: &astro-environment
+      API_INTERNAL_URL: http://api:8081
+      PLATFORM_URL: https://vikingthe.test
+
+  canary:
+    image: vikingthedev-canary:ci
+    build:
+      context: .
+      dockerfile: docker/astro.Dockerfile
+      args:
+        APP: canary
+    environment: *astro-environment
+
+  postgres:
+    image: postgres:18.6-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+    environment:
+      POSTGRES_USER: ci
+      POSTGRES_DB: ci
+      # Trust auth is safe only because the database has no published port.
+      POSTGRES_HOST_AUTH_METHOD: trust
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ci"]
+      interval: 2s
+      retries: 15
+
+  valkey:
+    image: valkey/valkey:9.1.2-alpine@sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11
+    command:
+      [
+        "valkey-server",
+        "--appendonly",
+        "yes",
+        "--maxmemory-policy",
+        "noeviction",
+      ]
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 2s
+      retries: 15
+
+  playwright:
+    image: mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27
+    profiles: ["test"]
+    # Uses the host's pnpm install; the image's version must match e2e/package.json's @playwright/test.
+    working_dir: /repo/e2e
+    # An entrypoint, not a command, so `scripts/ci-stack <args>` appends to it.
+    entrypoint: ["node_modules/.bin/playwright", "test"]
+    user: "${UID:-1000}:${GID:-1000}"
+    shm_size: 1gb
+    volumes:
+      - .:/repo:ro
+      - ./e2e/test-results:/repo/e2e/test-results
+    depends_on:
+      traefik:
+        condition: service_healthy

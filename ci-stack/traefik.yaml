@@ -1,0 +1,37 @@
+# Mirrors production routing (ADR 0001): each host's /api goes to the API, the rest to its app.
+http:
+  routers:
+    homepage-api:
+      rule: Host(`vikingthe.test`) && PathPrefix(`/api`)
+      service: api
+      tls: {}
+    canary-api:
+      rule: Host(`canary.vikingthe.test`) && PathPrefix(`/api`)
+      service: api
+      tls: {}
+    homepage:
+      rule: Host(`vikingthe.test`)
+      service: homepage
+      tls: {}
+    canary:
+      rule: Host(`canary.vikingthe.test`)
+      service: canary
+      tls: {}
+  services:
+    api:
+      loadBalancer:
+        servers:
+          - url: http://api:8080
+    homepage:
+      loadBalancer:
+        servers:
+          - url: http://homepage:4321
+    canary:
+      loadBalancer:
+        servers:
+          - url: http://canary:4321
+
+tls:
+  certificates:
+    - certFile: /certs/cert.pem
+      keyFile: /certs/key.pem

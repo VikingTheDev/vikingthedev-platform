@@ -17,6 +17,7 @@
     "@astrojs/check": "^0.9.10",
     "@vikingthedev/config": "workspace:*",
     "@vikingthedev/session": "workspace:*",
+    "@vikingthedev/ui": "workspace:*",
     "svelte-check": "^4.7.7",
     "typescript": "~6.0.0"
   }

@@ -8,6 +8,7 @@ export default defineConfig(
     "**/dist/",
     "**/.astro/",
     "target/",
+    "e2e/test-results/",
     "packages/api-types/src/schema.d.ts",
   ]),
   tseslint.configs.strict,

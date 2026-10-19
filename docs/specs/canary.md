@@ -25,7 +25,7 @@ The maintainer and automated checks. Anyone can open it; there's no login method
   - [ ] Afterwards, `/api/me` returns 401 on both hosts, and the homepage's server island renders "anonymous".
 - As the platform, I reject cross-host writes.
   - [ ] Sent with Playwright's `APIRequestContext` and explicit `Sec-Fetch-Site` and `Origin` headers, a `POST /api/auth/logout` to canary's `/api` gets 403 `forbidden` when marked `same-site` (from the homepage's origin) or `cross-site`; the same request marked `same-origin` gets 204.
-  - [ ] In a real browser, a logged-in homepage page sends a `no-cors` `text/plain` POST to canary's `/api/auth/logout`; afterwards the session still works on both hosts.
+  - [ ] In a real browser, a logged-in user's page on a sibling subdomain (`sibling.vikingthe.test`, served by Playwright) sends a `no-cors` `text/plain` POST to canary's `/api/auth/logout`; it gets 403 and the session still works. A homepage page can't be the sender: its own CSP (`connect-src 'self'`) blocks the request before it leaves (step 7a).
 - As a visitor, I can go back to the homepage.
   - [ ] A link to the homepage exists, and following it fires no view transition (`pagereveal` with no `event.viewTransition`).
 - As the deploy pipeline, I can see which build is live.

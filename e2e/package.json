@@ -1,0 +1,14 @@
+{
+  "name": "@vikingthedev/e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@playwright/test": "1.63.0",
+    "@types/node": "^24.12.0",
+    "typescript": "~6.0.0"
+  }
+}

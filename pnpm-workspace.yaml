@@ -1,6 +1,7 @@
 packages:
   - apps/*
   - packages/*
+  - e2e
 
 # Install scripts run only for packages approved here (CLAUDE.md), and an unapproved one fails the install.
 allowBuilds: {}

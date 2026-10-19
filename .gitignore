@@ -6,3 +6,5 @@ node_modules/
 target/
 dist/
 .astro/
+e2e/test-results/
+ci-stack/certs/

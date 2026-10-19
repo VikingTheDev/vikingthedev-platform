@@ -1,25 +1,20 @@
 ---
+import { PLATFORM_URL } from "astro:env/server";
+import Layout from "@vikingthedev/ui/Layout.astro";
 import LogoutButton from "@/components/LogoutButton.svelte";
 
 export const prerender = false;
 
 Astro.response.headers.set("Cache-Control", "private, no-store");
 const user = Astro.locals.user?.user;
+const homepageUrl = new URL(PLATFORM_URL);
 ---
 
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="robots" content="noindex" />
-    <title>canary · vikingthe.dev</title>
-  </head>
-  <body>
-    <main>
-      <h1>canary</h1>
-      <p>{user ? user.display_name : "anonymous"}</p>
-      {user && <LogoutButton client:idle />}
-    </main>
-  </body>
-</html>
+<Layout title="canary · vikingthe.dev">
+  <main>
+    <h1>canary</h1>
+    <p>{user ? user.display_name : "anonymous"}</p>
+    {user && <LogoutButton client:idle />}
+    <a href={homepageUrl.href}>vikingthe.dev</a>
+  </main>
+</Layout>

@@ -1,27 +1,20 @@
 ---
+import Layout from "@vikingthedev/ui/Layout.astro";
 import SessionGreeting from "@/components/SessionGreeting.astro";
 ---
 
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="robots" content="noindex" />
-    <title>vikingthe.dev</title>
-  </head>
-  <body>
-    <main>
-      <h1>vikingthe.dev</h1>
-      <p>Under construction.</p>
-      <p class="session">
-        <SessionGreeting server:defer>
-          <span slot="fallback"></span>
-        </SessionGreeting>
-      </p>
-    </main>
-  </body>
-</html>
+<Layout title="vikingthe.dev">
+  <main>
+    <h1>vikingthe.dev</h1>
+    <p>Under construction.</p>
+    <p class="session">
+      <SessionGreeting server:defer>
+        <span slot="fallback"></span>
+      </SessionGreeting>
+    </p>
+    <a href="/account">Account</a>
+  </main>
+</Layout>
 
 <style>
   /* Fixed size, so swapping the fallback for the island shifts nothing (homepage spec). */
