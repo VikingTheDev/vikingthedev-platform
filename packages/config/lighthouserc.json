@@ -1,0 +1,21 @@
+{
+  "ci": {
+    "assert": {
+      "assertMatrix": [
+        {
+          "matchingUrlPattern": ".*",
+          "assertions": {
+            "largest-contentful-paint": ["error", { "maxNumericValue": 2000 }],
+            "total-blocking-time": ["error", { "maxNumericValue": 100 }],
+            "cumulative-layout-shift": ["error", { "maxNumericValue": 0.05 }],
+            "server-response-time": ["error", { "maxNumericValue": 400 }],
+            "resource-summary:script:size": [
+              "error",
+              { "maxNumericValue": 15000 }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

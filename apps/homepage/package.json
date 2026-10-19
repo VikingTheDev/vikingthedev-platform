@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
-    "check": "astro check && svelte-check"
+    "check": "astro check && svelte-check",
+    "size": "size-limit"
   },
   "dependencies": {
     "@astrojs/node": "^11.1.8",
@@ -15,9 +16,11 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
+    "@size-limit/file": "14.1.0",
     "@vikingthedev/config": "workspace:*",
     "@vikingthedev/session": "workspace:*",
     "@vikingthedev/ui": "workspace:*",
+    "size-limit": "14.1.0",
     "svelte-check": "^4.7.7",
     "typescript": "~6.0.0"
   }

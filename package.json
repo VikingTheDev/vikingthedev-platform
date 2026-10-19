@@ -9,6 +9,7 @@
   "scripts": {
     "check": "pnpm -r check",
     "test": "pnpm -r test",
+    "size": "pnpm -r size",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check ."

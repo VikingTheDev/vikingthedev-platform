@@ -139,8 +139,11 @@ apps/<app>/            Astro + Svelte, one per host (apps/homepage/ first)
 packages/ui/           Svelte component library, consumed as source, never published
 packages/api-types/    generated from OpenAPI, committed, never hand-edited
 packages/config/       shared tsconfig, size-limit and Lighthouse CI presets
+packages/session/      Astro session lookup against :8081/session, bundled into each app
 crates/api/            axum binary (:8080 public, :8081 internal)
 crates/openapi-gen/    writes the OpenAPI JSON
+e2e/                   Playwright and axe suite, run against the CI stack
+ci-stack/              Traefik config for compose.ci.yaml; scripts/ci-stack runs it
 docs/adr/              numbered decision records
 docs/specs/            one spec per app, from TEMPLATE.md
 ```

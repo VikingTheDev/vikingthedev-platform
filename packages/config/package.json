@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./csp": "./csp.js"
+    "./csp": "./csp.js",
+    "./size-limit": "./size-limit.js"
   }
 }

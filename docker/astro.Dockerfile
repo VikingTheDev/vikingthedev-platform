@@ -3,7 +3,8 @@
 
 FROM node:24.22.0-trixie-slim@sha256:7f486cabe892bff8fef04c0f7da8dba84a560be3e4e2740b7a86afc57ebec315 AS builder
 ARG APP
-ENV PNPM_HOME=/pnpm
+# Builds never send Astro's anonymous usage data (step 7b gate).
+ENV PNPM_HOME=/pnpm ASTRO_TELEMETRY_DISABLED=1
 WORKDIR /build
 RUN corepack enable
 COPY package.json ./
