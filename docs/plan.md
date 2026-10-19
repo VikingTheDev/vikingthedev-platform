@@ -143,7 +143,7 @@ Scope: an empty prerendered homepage with one on-demand route and one server isl
 **M1a: local, nothing touches production**
 
 0. Write `docs/specs/canary.md` and a minimal `docs/specs/homepage.md` (one page, one on-demand route, one server island), because specs come before code → verify: both specs have an empty "Open questions" section.
-1. Scaffold the Cargo and pnpm workspaces, `apps/homepage`, `apps/canary`, `crates/api` and `compose.dev.yaml` → verify: `cargo test --workspace`, `pnpm -r check` and `pnpm lint` pass locally against `compose.dev.yaml`.
+1. Scaffold the Cargo and pnpm workspaces, `apps/homepage`, `apps/canary`, `crates/api` and `compose.dev.yaml` → verify: `cargo test --workspace`, `pnpm -r check` and `pnpm lint` pass locally against `compose.dev.yaml`, and whether Astro 7 reads `security.allowedDomains` at build time is recorded.
 2. **Known risk: does `tower-sessions` hash IDs at rest?** **Answered on 2026-10-19: no.** `tower-sessions-redis-store` 0.16.0 uses the raw ID as the Valkey key, the 0.15.0 core draws IDs from `rand::rng()` rather than `OsRng`, and there's no per-user index for revoking all of a user's sessions. Build the store from `rust.md` on the `redis` crate → verify: unit tests show Valkey holds only `sha256(token)` keys and that revoking a user deletes every one of their sessions.
 3. Session issuance without an auth method: a test-only login route behind a cargo feature `e2e`, compiled only into the CI-stack image, plus an `api issue-session` CLI subcommand that only the human runs on the VPS → verify: an HTTP test asserts the production build returns 404 on the test route, and CI checks that the production image was built without the feature. The CI-stack image is built with `--load` only: it's never pushed to GHCR, and never tagged `:<sha>` or `:prod`.
 4. **Known risk: does `pnpm deploy` need `inject-workspace-packages=true`?** Build the Astro images → verify: the build succeeds and the answer is recorded.
@@ -211,6 +211,7 @@ Hero, portfolio (GitHub highlights fetched at build time), blog (content collect
 - Lighthouse CI and `size-limit` meet the content-route budgets, with the terminal kept out of the initial JS;
 - axe passes;
 - Observatory gives an A+;
+- the M1 placeholder's `noindex` is gone from `/`;
 - after 2 weeks, the RUM p75 values are within the field targets;
 - a contact form submission arrives in the maintainer's inbox, and the 6th in a minute gets a 429.
 
