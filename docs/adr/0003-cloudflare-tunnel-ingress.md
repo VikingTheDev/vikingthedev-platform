@@ -1,6 +1,6 @@
 # ADR 0003: Cloudflare Tunnel ingress and admin hosts
 
-- **Status:** Proposed
+- **Status:** Accepted (2026-10-19)
 - **Date:** 2026-10-18
 - **Decider:** Solo maintainer
 
@@ -14,9 +14,9 @@ What a tunnel changes:
 - **TLS:** traffic from Cloudflare to the origin runs inside the tunnel. The hop from `cloudflared` to Traefik may be plain HTTP, which interacts with Coolify's HTTPS redirects.
 - **Origin exposure:** with a tunnel, the origin needs no open inbound HTTP ports. If they are open anyway, a client can skip Cloudflare and forge `CF-Connecting-IP`.
 
-## Decision (proposed)
+## Decision
 
-1. **One catch-all tunnel serves the public apps**, with the apex and wildcard pointing to Traefik. Coolify domains use the scheme that avoids redirect loops; milestone 1 step 11 settles which. The admin tools keep their own tunnels.
+1. **One catch-all tunnel serves the public apps**, with the apex and wildcard pointing to Traefik. Coolify domains use the scheme that avoids redirect loops; milestone 1 step 14 settles which. The admin tools keep their own tunnels.
 2. **The origin's inbound 80 and 443 are closed** to the internet (OVH's edge firewall; `ufw` doesn't cover Docker-published ports, see D20). Only `cloudflared`'s outbound connection carries traffic.
 3. **The API takes the client IP from `CF-Connecting-IP`,** which is safe only because of point 2.
    - The rule applies only on the public `:8080` listener. `/api/health` is exempt, because Coolify's health checks, `oha` runs on the VPS and the CI stack arrive without Cloudflare.

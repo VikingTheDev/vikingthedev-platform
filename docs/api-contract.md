@@ -1,6 +1,6 @@
 # API contract (draft)
 
-- **Status:** Draft. It follows the conventions in proposed ADR 0006.
+- **Status:** Draft. It follows the conventions in ADR 0006.
 - **Scope:** platform endpoints for milestones 1–3, plus the homepage endpoints in M5. App endpoints go in each app's spec.
 - **Source of truth after implementation:** the `utoipa`-generated `packages/api-types/openapi.json` (ADR 0001). This draft is the target that code is written against. If the two ever disagree, the generated file wins, and this draft is updated in the same commit.
 

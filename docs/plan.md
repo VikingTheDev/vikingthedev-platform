@@ -13,7 +13,7 @@ Companion files:
 | `apps.md` | App shortlist with scores and pitches |
 | `design-sequence.md` | Content inventory → tokens → components → homepage |
 | `api-contract.md` | Draft contract for the platform endpoints used by milestones 1–3 |
-| `adr/0002`–`0007` | Proposed ADRs for each expensive decision |
+| `adr/0002`–`0007` | ADRs for each expensive decision (0002, 0003, 0005 and 0006 accepted; 0004 and 0007 proposed) |
 
 ## 1. Product thesis (confirmed 2026-10-18)
 
@@ -31,12 +31,12 @@ Usage targets for the public apps get set after one month of real data, not gues
 
 | Item | Conflict | Handling |
 |---|---|---|
-| No staging for now (answer C) | ADR 0001 §5 runs staging webhook → E2E → production. Staging is also named in ADR 0001 §3 (the "CI gate … staging" column and "`oha` against staging"), in its "CI guardrails" (Lighthouse "against public staging routes", "Playwright on staging"), in CLAUDE.md's checks table, in `rust.md` ("Measure with `oha` against staging") and in `frontend.md`'s budget table. | Proposed ADR 0002: an ephemeral full stack inside CI replaces staging for functional tests, and production gets post-deploy checks plus rollback. Once 0002 is accepted, 0001's status, CLAUDE.md and the rule files listed in §5 need updating. Not done yet. |
-| Ingress is a Cloudflare Tunnel (DNS zone) | ADR 0001 assumes plain orange-cloud proxying to Traefik. A tunnel changes how the client IP is seen, and how TLS and origin exposure work. | Proposed ADR 0003. |
+| No staging for now (answer C) | ADR 0001 §5 runs staging webhook → E2E → production. Staging is also named in ADR 0001 §3 (the "CI gate … staging" column and "`oha` against staging"), in its "CI guardrails" (Lighthouse "against public staging routes", "Playwright on staging"), in CLAUDE.md's checks table, in `rust.md` ("Measure with `oha` against staging") and in `frontend.md`'s budget table. | ADR 0002 (accepted 2026-10-19): an ephemeral full stack inside CI replaces staging for functional tests, and production gets post-deploy checks plus rollback. 0001's status, CLAUDE.md and the rule files listed in §5 are updated. |
+| Ingress is a Cloudflare Tunnel (DNS zone) | ADR 0001 assumes plain orange-cloud proxying to Traefik. A tunnel changes how the client IP is seen, and how TLS and origin exposure work. | ADR 0003 (accepted 2026-10-19). |
 | `coolify.`, `beszel.`, `ssh.vikingthe.dev` exist (DNS zone) | They are third-party software on hosts that receive the session cookie. ADR 0001's "Revisit if" lists "subdomains host third-party content". | Decision D10, inside ADR 0003. |
 | Cookie `Domain` is "exactly" `vikingthe.dev` | A future staging domain needs a different `Domain`. | ADR 0002 makes the cookie domain, and the CSRF `Origin` allowlist derived from it, a runtime config value. The production value stays exactly as written. |
 | Session record gains `last_auth_at` (D19) | ADR 0001 §2 and `rust.md` define the record as exactly `{user_id, created, last_seen, ua_hash}`. Re-authentication for admin writes needs the time of the last login. | Recorded in proposed ADR 0004. `rust.md` is amended once 0004 is accepted. |
-| "Draft a specific API contract" (B1) | None. The ADR 0001 tooling (utoipa → openapi-typescript → openapi-fetch) is kept. | Conventions go in proposed ADR 0006. Endpoint shapes are drafted in `api-contract.md`; `utoipa` later generates the contract from code, and the draft is the target. |
+| "Draft a specific API contract" (B1) | None. The ADR 0001 tooling (utoipa → openapi-typescript → openapi-fetch) is kept. | Conventions are in ADR 0006 (accepted 2026-10-19). Endpoint shapes are drafted in `api-contract.md`; `utoipa` later generates the contract from code, and the draft is the target. |
 | OVH daily disk backups as the only backup (B4) | None with ADR 0001, which only requires Valkey persistence. | See D5. The maintainer waived the "real backup restore" exit check on 2026-10-18: OVH can only restore over the live disk, and this is a personal project. |
 
 ## 3. Decision dependency graph
@@ -58,9 +58,9 @@ graph LR
   D6[D6 Monitoring] --> M1
   D13[D13 Swap and limits] --> M1
   M1[M1 Walking skeleton] --> M2
-  D3[D3 Diesel async vs sync] --> M2
+  D3[D3 Diesel async] --> M1
   D5[D5 Backups] --> M2
-  D16[D16 Migrations at startup] --> M2
+  D16[D16 Migrations at startup] --> M1
   M2[M2 Data and backups] --> M3
   D1[D1 Auth method] --> D2[D2 Email]
   D1 --> D8[D8 GDPR]
@@ -126,38 +126,62 @@ Results:
 
 ### M1: Walking skeleton (tests every Known risk)
 
-Scope: an empty prerendered homepage with one on-demand route and one server island; `apps/canary/` at `canary.vikingthe.dev` (a single on-demand page that renders `Astro.locals.user`; kept as the target of the synthetic checks); `crates/api` with `/api/health`, `/api/me`, `/api/auth/logout`, the CSRF middleware, the session store, and `:8081` `/health` and `/session`; and the CI → GHCR → Coolify pipeline. A second app is needed because the cross-subdomain session can't be tested with one host.
+Scope: an empty prerendered homepage with one on-demand route and one server island; `apps/canary/` at `canary.vikingthe.dev` (a single on-demand page that renders `Astro.locals.user`; kept as the target of the synthetic checks); `crates/api` with `/api/health`, `/api/me`, `/api/auth/logout`, the CSRF middleware, the session store, a one-table `users` schema in PostgreSQL, and `:8081` `/health` and `/session`; and the CI → GHCR → Coolify pipeline. A second app is needed because the cross-subdomain session can't be tested with one host.
+
+**Decisions taken at the M1 gate (2026-10-19):**
+
+1. ADRs 0002, 0003, 0005 and 0006 are accepted, with the follow-ups in §5 applied. 0004 and 0007 wait for M3.
+2. The session store is hand-rolled on the `redis` crate (step 2's answer, below). `fred` was rejected: its last release was 2025-02-27, while `redis` releases every few weeks.
+3. PostgreSQL, diesel-async and a one-table `users` schema come into M1, so the skeleton crosses every layer. Migrations run at startup under an advisory lock (D16).
+4. Security headers: one Cloudflare response-header rule for every host (HSTS, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, CSP `frame-ancestors 'none'`), and the per-page CSP from Astro as hashes in a `<meta>` tag. The Cloudflare config is written down in `docs/edge-config.md`. HSTS carries `preload`. Submitting the domain to the preload list isn't needed: `.dev` is preloaded as a whole TLD.
+5. Third-party GitHub Actions: the list in `ci-deploy.md`, each pinned to a commit SHA and named in the commit that adds it. Any action not on the list is still stop-and-ask.
+6. The `main` ruleset requires a PR and the CI checks, with no approvals and no bypass. Claude creates commits; only the maintainer pushes.
+7. UptimeRobot's free tier (D6).
+8. Lighthouse CI reports go to GitHub Actions artifacts only.
+9. M1 is split into three PRs: M1a (local), M1b (production, opened by a short gate of its own) and M1c (records).
+
+**M1a: local, nothing touches production**
 
 0. Write `docs/specs/canary.md` and a minimal `docs/specs/homepage.md` (one page, one on-demand route, one server island), because specs come before code → verify: both specs have an empty "Open questions" section.
-1. Scaffold the Cargo and pnpm workspaces, `apps/homepage`, `apps/canary` and `crates/api` → verify: `cargo test --workspace`, `pnpm -r check` and `pnpm lint` pass locally against `compose.dev.yaml`.
-2. **Known risk: does `tower-sessions` hash IDs at rest?** Read the source of the version we'd pin → verify: the answer is recorded, and the store is either `tower-sessions` or a hand-rolled store on `fred`.
+1. Scaffold the Cargo and pnpm workspaces, `apps/homepage`, `apps/canary`, `crates/api` and `compose.dev.yaml` → verify: `cargo test --workspace`, `pnpm -r check` and `pnpm lint` pass locally against `compose.dev.yaml`.
+2. **Known risk: does `tower-sessions` hash IDs at rest?** **Answered on 2026-10-19: no.** `tower-sessions-redis-store` 0.16.0 uses the raw ID as the Valkey key, the 0.15.0 core draws IDs from `rand::rng()` rather than `OsRng`, and there's no per-user index for revoking all of a user's sessions. Build the store from `rust.md` on the `redis` crate → verify: unit tests show Valkey holds only `sha256(token)` keys and that revoking a user deletes every one of their sessions.
 3. Session issuance without an auth method: a test-only login route behind a cargo feature `e2e`, compiled only into the CI-stack image, plus an `api issue-session` CLI subcommand that only the human runs on the VPS → verify: an HTTP test asserts the production build returns 404 on the test route, and CI checks that the production image was built without the feature. The CI-stack image is built with `--load` only: it's never pushed to GHCR, and never tagged `:<sha>` or `:prod`.
 4. **Known risk: does `pnpm deploy` need `inject-workspace-packages=true`?** Build the Astro images → verify: the build succeeds and the answer is recorded.
-5. CI: checks → build → push `:<sha>` and `:prod` → Coolify webhook → wait for the health endpoint → verify: the workflow is green, `/api/health` returns the pushed SHA, and the `main` ruleset now requires PRs and the CI status checks. Every Coolify resource created in M1 has its memory limit from `capacity.md`.
-6. **Known risk: does a Docker Image resource re-pull on webhook redeploy?** → verify: two consecutive deploys of different commits each change the SHA reported by `/api/health`.
-7. **Known risk: does Coolify route `Host && /api` to a different resource than `/`?** → verify: `https://vikingthe.dev/api/health` and `https://canary.vikingthe.dev/api/health` return the API's SHA, while `/` on each host returns Astro.
-8. **Known risk: how does a Docker Image resource reach `:8081`?** → verify: canary's server-rendered HTML shows "anonymous" within the 50 ms budget, the API logs the internal call, and `:8081` is unreachable from outside.
-9. **Known risk: what cache headers does Astro send on server islands?** → verify: the `curl -I` headers of `/_server-islands/*` are recorded, and the Cloudflare bypass rule gives `cf-cache-status: DYNAMIC` or `BYPASS`.
-10. **Known risk: does Universal SSL cover one subdomain level?** → verify: the certificate on `canary.vikingthe.dev` lists `*.vikingthe.dev`.
-11. **New risks from the tunnel (ADR 0003):** HTTPS redirect loops between Cloudflare, cloudflared and Traefik, and the client IP → verify: no redirect loop, and API logs show the caller's real IP from `CF-Connecting-IP`.
-12. **New risk: diesel-async in a distroless image (D3).** Not needed until M2, but the base image is chosen here → verify: the API image has no libpq dependency (`ldd` in the build stage).
-13. Playwright (CI stack) → verify:
-    - the cookie attributes match ADR 0001;
-    - the session appears in canary's server-rendered HTML;
-    - after logout, `/api/me` is 401 on both hosts;
-    - `same-site` and `cross-site` writes get 403 while a `same-origin` control succeeds;
-    - the `pagereveal` test fires a transition within the homepage and not across to canary;
-    - axe passes on every page.
-14. Production post-deploy → verify: the Playwright smoke suite (CSRF 403s, anonymous `/api/me` 401, health SHA) passes; Lighthouse CI meets the ADR 0001 budgets; `size-limit` passes; Mozilla Observatory gives an A+ on `vikingthe.dev` and `canary.vikingthe.dev`.
-15. Human-only production session check: run `api issue-session` on the VPS, open canary in a browser, then log out → verify: the maintainer ticks the checklist (user visible in canary's server-rendered HTML, then 401 on both hosts). Claude never sees the token.
-16. oha baseline → verify: `/api/health` p99 is at most 50 ms from the maintainer's machine (the result notes tunnel and network time), and `:8081/session` p99 is at most 5 ms from inside the VPS.
-17. External uptime check on `/` and `/api/health` (D6) → verify: stopping canary triggers an alert email.
-18. Record every Known risk outcome in a new ADR → verify: ADR 0008 exists and lists each risk as confirmed, or as falling back with the fallback applied.
-19. ASVS L2 → verify: V14 (configuration) and the V3 parts the skeleton touches are ticked with evidence.
+5. **Known risk: Astro 7's config key for CSP hashes** (`security-code.md` calls it unverified) → verify: the built HTML carries a CSP `<meta>` with `script-src` hashes and no `unsafe-inline`, and the server island and hydration scripts still run.
+6. **diesel-async in a distroless image (ADR 0005).** Choose the pool crate (`bb8` or `deadpool`). The `users` migration runs at startup under an advisory lock → verify: `ldd` on the API binary (in the build stage) shows no libpq; two API containers starting at once apply the migration exactly once; `/api/me` returns the user from PostgreSQL.
+7. Playwright (CI stack) → verify:
+   - the cookie attributes match ADR 0001;
+   - the session appears in canary's server-rendered HTML;
+   - after logout, `/api/me` is 401 on both hosts;
+   - `same-site` and `cross-site` writes get 403 while a `same-origin` control succeeds;
+   - the `pagereveal` test fires a transition within the homepage and not across to canary;
+   - axe passes on every page;
+   - Lighthouse CI (lab budgets) and `size-limit` pass.
+
+**M1b: production** (opens with its own gate: Coolify resource setup, the GitHub `production` environment, and the Cloudflare rules)
+
+8. CI: checks → build → push `:<sha>` and `:prod` → Coolify webhook → wait for the health endpoint → purge the cache → smoke checks → verify: the workflow is green, `/api/health` returns the pushed SHA, and the `main` ruleset now requires PRs and the CI status checks. Every Coolify resource created in M1 (API, homepage, canary, Valkey, PostgreSQL) has its memory limit from `capacity.md`. Required checks are jobs that always run, so a docs-only PR can still merge.
+    - **Rollback drill:** a throwaway commit whose smoke check fails on purpose, deployed after a commit that added a migration → verify: CI rolls `:prod` back to the digest recorded before the deploy, `/api/health` reports the previous SHA, and the older API starts cleanly against the migrated schema.
+9. **Known risk: does a Docker Image resource re-pull on webhook redeploy?** → verify: two consecutive deploys of different commits each change the SHA reported by `/api/health`.
+10. **Known risk: does Coolify route `Host && /api` to a different resource than `/`?** → verify: `https://vikingthe.dev/api/health` and `https://canary.vikingthe.dev/api/health` return the API's SHA, while `/` on each host returns Astro.
+11. **Known risk: how does a Docker Image resource reach `:8081`?** → verify: canary's server-rendered HTML shows "anonymous" within the 50 ms budget, the API logs the internal call, and `:8081` is unreachable from outside.
+12. **Known risk: what cache headers does Astro send on server islands?** Plus a Cloudflare Cache Rule: prerendered HTML is eligible for the edge cache (Cloudflare doesn't cache HTML by default), while `/api/*`, `/_server-islands/*` and on-demand routes bypass it → verify: the `curl -I` headers of `/_server-islands/*` are recorded; a prerendered page shows `cf-cache-status: HIT` on its second request; server islands, `/api/*` and canary show `DYNAMIC` or `BYPASS`.
+13. **Known risk: does Universal SSL cover one subdomain level?** → verify: the certificate on `canary.vikingthe.dev` lists `*.vikingthe.dev`.
+14. **New risks from the tunnel (ADR 0003):** HTTPS redirect loops between Cloudflare, cloudflared and Traefik, and the client IP → verify: no redirect loop, and API logs show the caller's real IP from `CF-Connecting-IP`.
+15. Security headers (gate decision 4) → verify: `docs/edge-config.md` matches the live Cloudflare rule, and Mozilla Observatory gives an A+ on `vikingthe.dev` and `canary.vikingthe.dev`.
+16. Production post-deploy → verify: the Playwright smoke suite (CSRF 403s, anonymous `/api/me` 401, health SHA) passes; Lighthouse CI meets the ADR 0001 budgets, including TTFB through the edge.
+17. Human-only production session check: run `api issue-session` on the VPS, open canary in a browser, then log out → verify: the maintainer ticks the checklist (user visible in canary's server-rendered HTML, then 401 on both hosts). Claude never sees the token.
+18. oha baseline → verify: `/api/health` p99 is at most 50 ms from the maintainer's machine (the result notes tunnel and network time), and `:8081/session` p99 is at most 5 ms from inside the VPS.
+19. External uptime check on `/`, `/api/health` and `canary.vikingthe.dev` (D6, UptimeRobot) → verify: stopping canary triggers an alert email.
+
+**M1c: records**
+
+20. Record every Known risk outcome in a new ADR → verify: ADR 0008 exists and lists each risk as confirmed, or as falling back with the fallback applied. For the session store it records that the fallback changed from `fred` to `redis`, because `fred` has had no release since 2025-02-27.
+21. ASVS L2 → verify: V14 (configuration) and the V3 parts the skeleton touches are ticked with evidence.
 
 ### M2: Data and backups
 
-1. Add a PostgreSQL Coolify resource and diesel-async with a `users` table (D3, D16) → verify: migrations run, and HTTP tests pass against PostgreSQL in the CI stack.
+1. The diesel-async spike from ADR 0005 (PostgreSQL itself arrives in M1): a primary-key read, a cursor-paginated filtered list and a two-table transaction → verify: the read p99 is at most 50 ms under `oha` (server-side timing), and errors map cleanly to `AppError`. A failure means a new ADR, not a silent switch.
 2. Add a nightly `pg_dump` to a local volume, and turn on RDB snapshots in Valkey alongside AOF (D5) → verify: a dump file under 24 hours old exists, and Valkey's `INFO persistence` shows both on.
 3. oha nightly against a read endpoint → verify: p50 ≤ 10 ms and p99 ≤ 50 ms server-side (from the API's `tracing` timings).
 4. ASVS L2 → verify: V8 (data protection) for the data at rest is ticked.
@@ -199,6 +223,8 @@ Spec → implementation → verify: the spec's acceptance criteria pass in Playw
 Same exit checks as M6. The file drop adds upload checks (size and content type enforced server-side, R2 presigned URL expiry, quota) and an ASVS L2 V12 (files) review.
 
 ## 5. Follow-ups once proposed ADRs are accepted
+
+Applied on 2026-10-19 for ADRs 0002, 0003, 0005 and 0006 (M1 gate), with the maintainer's approval. 0004 and 0007 are still pending.
 
 - ADR 0002 accepted → mark ADR 0001 as partly superseded by 0002 (§3's staging CI gate and `oha` target, §5 "Staging" and the pipeline, and the staging parts of "CI guardrails"). Update CLAUDE.md's checks table, `ci-deploy.md`'s pipeline, `rust.md`'s `oha` line and `frontend.md`'s budget table. The maintainer approves those edits.
 - ADR 0003 accepted → add the tunnel and client-IP rule to `security-code.md`.

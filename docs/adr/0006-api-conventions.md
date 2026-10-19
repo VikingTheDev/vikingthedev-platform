@@ -1,6 +1,6 @@
 # ADR 0006: API conventions
 
-- **Status:** Proposed
+- **Status:** Accepted (2026-10-19)
 - **Date:** 2026-10-18
 - **Decider:** Solo maintainer
 
@@ -8,11 +8,11 @@
 
 ADR 0001 fixes the tooling: `utoipa` → OpenAPI → `openapi-typescript` → `openapi-fetch`. It doesn't fix the shapes those tools carry. The maintainer wants frontend and backend to agree on data models before code exists. The endpoint draft is `docs/api-contract.md`. This ADR fixes the rules every endpoint follows, and keeps ADR 0001's tooling.
 
-## Decision (proposed)
+## Decision
 
 | Topic | Rule |
 |---|---|
-| **Errors** | RFC 9457 `application/problem+json`. `type` is a stable URI, `https://vikingthe.dev/problems/<code>`, that clients switch on. `title` is fixed per type. `detail` is safe for users only. `instance` is the request ID. Validation errors add `errors: [{ field, code }]`. Internal text never reaches clients. |
+| **Errors** | RFC 9457 `application/problem+json`. `type` is a stable URI, `https://vikingthe.dev/problems/<code>`, that clients switch on. `title` is fixed per type. `detail` is safe for users only. `instance` is the request ID as `urn:uuid:<request-id>`. Validation errors add `errors: [{ field, code }]`. Internal text never reaches clients. |
 | **IDs** | UUIDv7, as strings in JSON, wrapped in Rust newtypes (`UserId`). |
 | **Timestamps** | RFC 3339 in UTC with a `Z` suffix, in fields named `*_at`. |
 | **Field names** | snake_case, serde's default (`rust.md`). |

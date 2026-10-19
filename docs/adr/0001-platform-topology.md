@@ -1,6 +1,6 @@
 # ADR 0001: Platform topology for the vikingthe.dev suite
 
-- **Status:** Accepted
+- **Status:** Accepted. Partly superseded by ADR 0002 (2026-10-19): the staging CI gate and `oha` target in §3, the `:staging` tag, "Staging" and pipeline steps 3–5 in §5, and the staging parts of "CI guardrails". Ingress refined by ADR 0003.
 - **Date:** 2026-10-18
 - **Decider:** Solo maintainer
 

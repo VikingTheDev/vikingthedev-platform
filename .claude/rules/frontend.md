@@ -136,12 +136,12 @@ Source: [Svelte best practices](https://svelte.dev/docs/svelte/best-practices).
 
 A budget regression is a failing test, not a judgment call.
 
-| Metric | Field p75 | CI gate (Lighthouse mobile, staging) |
+| Metric | Field p75 | CI gate (Lighthouse mobile: the CI stack per PR, production after deploy; ADR 0002) |
 |---|---|---|
 | LCP | ≤ 1.8 s | ≤ 2.0 s |
 | INP | ≤ 100 ms | TBT ≤ 100 ms (Lighthouse can't measure INP) |
 | CLS | ≤ 0.05 | ≤ 0.05 |
-| TTFB, static HTML from the Cloudflare cache | ≤ 200 ms | ≤ 200 ms |
+| TTFB, static HTML from the Cloudflare cache | ≤ 200 ms | ≤ 200 ms, production only (the CI stack has no edge) |
 | TTFB, server-rendered route | ≤ 400 ms | ≤ 400 ms |
 | JS per route (gzip) | content ≤ 15 KB, app ≤ 75 KB | `size-limit` plus Lighthouse `resource-summary:script:size` |
 

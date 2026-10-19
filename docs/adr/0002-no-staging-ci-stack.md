@@ -1,9 +1,9 @@
 # ADR 0002: No staging environment for now; a full stack in CI instead
 
-- **Status:** Proposed
+- **Status:** Accepted (2026-10-19)
 - **Date:** 2026-10-18
 - **Decider:** Solo maintainer
-- **Would supersede:** in ADR 0001: §3's staging CI gate and "`oha` against staging"; §5 "Staging" and pipeline steps 3–5; and the staging parts of "CI guardrails"
+- **Supersedes (in part):** in ADR 0001: §3's staging CI gate and "`oha` against staging"; §5's `:staging` tag, "Staging" and pipeline steps 3–5; and the staging parts of "CI guardrails"
 
 ## Context
 
@@ -21,7 +21,7 @@ There are two gaps without staging. Authenticated end-to-end tests would have to
    5. the Cloudflare cache purge, so the checks below see the new HTML;
    6. post-deploy smoke checks: Playwright with no login, Lighthouse CI, Observatory.
 
-   If step 4 or 6 fails, CI rolls back. The Docker Image resource always pulls `:prod`, and the webhook can't choose a tag. So CI retags `:prod` to the previous `:<sha>` in GHCR (`docker buildx imagetools create`), calls the webhook again and purges the cache. Rollback is safe only because migrations are expand-only (D16).
+   If step 4 or 6 fails, CI rolls back. The Docker Image resource always pulls `:prod`, and the webhook can't choose a tag. So CI records the digest `:prod` points at before pushing, retags `:prod` back to that digest in GHCR (`docker buildx imagetools create`), calls the webhook again and purges the cache. Rollback is safe only because migrations are expand-only (D16).
 2. **A full stack in CI.** A compose file brings up Traefik, the API, every changed app, PostgreSQL, Valkey and Mailpit inside the GitHub runner.
    - `*.vikingthe.test` resolves to `127.0.0.1`, with a TLS certificate generated during the job.
    - The cookie domain is `vikingthe.test`.

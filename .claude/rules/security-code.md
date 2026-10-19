@@ -6,6 +6,7 @@ These rules are always loaded, because they also apply to specs, proxy config an
 
 - **Validate at the boundary.** Parse every external input into a validated type at the edge. This covers bodies, queries, headers, cookies, files and environment. Interior code never sees raw input.
 - **No string-built commands.** Use parameterized SQL only. Never build SQL, shell commands, URLs or file paths by concatenating input.
+- **Client IP** (ADR 0003): read it only from the configured trusted header (`CF-Connecting-IP` in production), never from `X-Forwarded-For` or the peer address, and only on the public `:8080` listener, parsed at the boundary into a `ClientIp` type. A rate-limited request without the header is rejected. IPv6 rate limits key on the /64 prefix. This is safe only while the origin's inbound ports stay closed (D20).
 - **Check authorization** in the domain layer on every resource access, not just "is logged in". This prevents IDOR. Deny by default.
 
 ## Authentication

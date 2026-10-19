@@ -9,24 +9,26 @@
 |---|---|---|---|---|
 | D1 | Auth method | **Narrowed: email + password and/or OAuth (GitHub, Discord); magic link optional.** Details open | Maintainer | 0004 (proposed) |
 | D2 | Transactional email | **Resolved: Proton SMTP** (unlimited plan). A test send is pending | Maintainer creates the SMTP token | 0007 (proposed) |
-| D3 | PostgreSQL library | **Resolved: Diesel.** diesel-async vs sync is open | Claude (spike in M2), maintainer confirms | 0005 (proposed) |
-| D4 | API conventions | Recommended | Maintainer approves | 0006 (proposed) |
+| D3 | PostgreSQL library | **Resolved: Diesel through diesel-async** (ADR 0005 accepted 2026-10-19). The M2 spike measures latency | Claude (spike in M2) | 0005 |
+| D4 | API conventions | **Resolved** (ADR 0006 accepted 2026-10-19) | — | 0006 |
 | D5 | Backups and restore | **Resolved: OVH daily backups, no restore drill.** Nightly `pg_dump` recommended | Maintainer | No |
-| D6 | Monitoring and external uptime | Recommended | Maintainer signs up (M1 step 17) | No |
-| D7 | Staging | **Resolved: none for now** (revisited 2026-10-19, on hold; findings under D7) | — | 0002 (proposed) |
+| D6 | Monitoring and external uptime | **Resolved: UptimeRobot free tier** (M1 gate). Uptime Kuma noted for later | Maintainer signs up (M1 step 19) | No |
+| D7 | Staging | **Resolved: none for now** (revisited 2026-10-19, on hold; findings under D7) | — | 0002 |
 | D8 | GDPR basics | Recommended | Claude drafts, maintainer approves | No |
-| D9 | Ingress through Cloudflare Tunnel | **Resolved: facts recorded** | — | 0003 (proposed) |
-| D10 | Admin hosts on the cookie domain | **Resolved and applied: Cloudflare Access** (M0) | — | 0003 (proposed) |
-| D11 | Authenticated E2E without staging | Recommended | Maintainer approves | 0002 (proposed) |
+| D9 | Ingress through Cloudflare Tunnel | **Resolved: facts recorded** | — | 0003 |
+| D10 | Admin hosts on the cookie domain | **Resolved and applied: Cloudflare Access** (M0) | — | 0003 |
+| D11 | Authenticated E2E without staging | **Resolved: (a)** (ADR 0002 accepted 2026-10-19) | — | 0002 |
 | D12 | Design token pipeline | Recommended | Maintainer approves at M4 | No |
 | D13 | Swap and container memory limits | **Swap applied: 4 GiB, swappiness 10.** Limits are set per resource from M1 | The maintainer sets each limit from `capacity.md` when creating the resource | No |
 | D14 | Contact form anti-spam | Recommended | Maintainer | No |
 | D15 | GitHub data for the portfolio | Recommended | Maintainer | No |
-| D16 | When migrations run | Recommended | Claude, in M2 | No |
+| D16 | When migrations run | **Resolved: at startup under an advisory lock, expand-only** (M1 gate) | — | Recorded in 0005 |
 | D17 | R2 layout for the file drop | Deferred to that app's spec | Maintainer | Maybe |
 | D18 | Sign-up and access model | Open | Maintainer | 0004 (proposed) |
 | D19 | Admin app (`admin.vikingthe.dev`) protection and scope | Open | Maintainer | No; covered by its spec |
 | D20 | Host firewall for Docker-published ports | **Resolved: accept OVH's edge firewall as the only layer.** Improvements are listed | Maintainer | No |
+| D21 | Error tracking | Recommended: Sentry (Education pack), server-side only, EU region | Maintainer, at the M2 or M3 gate | Yes, if adopted |
+| D22 | Security hardening: development secrets from Proton Pass | Proposal for later | Maintainer, when development credentials are first needed | No |
 
 ## Details
 
@@ -64,7 +66,8 @@ The maintainer wants user accounts with email and password, or OAuth2 through Gi
 | | |
 |---|---|
 | **Resolved** | Diesel (the maintainer's choice, 2026-10-18). |
-| **Open sub-decision** | `diesel-async` (on `tokio-postgres`, pure Rust) with a `bb8` or `deadpool` pool, vs synchronous `diesel` (libpq) through `deadpool-diesel`, which runs each query in `spawn_blocking`. |
+| **Resolved (M1 gate, 2026-10-19)** | `diesel-async`, with ADR 0005 accepted. M1 checks the binary has no libpq; the M2 spike measures latency. |
+| **Was open** | `diesel-async` (on `tokio-postgres`, pure Rust) with a `bb8` or `deadpool` pool, vs synchronous `diesel` (libpq) through `deadpool-diesel`, which runs each query in `spawn_blocking`. |
 | **Recommendation** | **`diesel-async`.** The distroless `cc` runtime image has no `libpq.so`, so synchronous Diesel would need a custom base or static linking. Async also fits axum without hopping a thread per query. Migrations use `diesel_migrations` through `AsyncConnectionWrapper`, which also avoids libpq. |
 | **Evidence that settles it** | A 1-day timeboxed spike in M2. The same three queries (a hot read by primary key, a filtered list with a cursor, and a transaction across two tables) checked for: p99 under `oha`, clean compile time, the `ldd` output of the binary, and how errors map to `AppError`. |
 | **ADR** | Yes, 0005. |
@@ -84,7 +87,7 @@ Recommendation, detailed in ADR 0006 and applied in `api-contract.md`:
 | Breaking changes | `oasdiff breaking` compares the PR's `openapi.json` with `main`'s, and fails CI on a breaking change. The fix is to expand then contract: add the new field, deploy, then remove the old one in a later PR, because the API and the apps deploy separately. |
 | Tooling | `oasdiff` runs as a pinned release binary with a checksum check, not as a third-party GitHub Action (CLAUDE.md "stop and ask"). |
 
-**Evidence that settles it:** maintainer approval. **ADR:** yes, 0006 (a public API shape).
+**Resolved (M1 gate, 2026-10-19):** approved with ADR 0006 accepted. **ADR:** yes, 0006 (a public API shape).
 
 ### D5: Backups and restore
 
@@ -103,7 +106,9 @@ Recommendation, detailed in ADR 0006 and applied in `api-contract.md`:
 | **Options for the external check** | (a) UptimeRobot free tier (5-minute checks, email alerts). (b) A scheduled GitHub Actions workflow running `curl` (runs at most every 5 minutes, and is often delayed). (c) Cloudflare health checks (paid). |
 | **Recommendation** | **(a)** for `/`, `/api/health` and `canary.vikingthe.dev`, alerting a Proton address. No hosted status page on a `vikingthe.dev` subdomain (DNS hygiene). The homepage status section reads our own `/api/status`. The page itself is served from the edge cache, so it can still say "unreachable" when the VPS is down. |
 | **Also** | Pin Beszel's images to a version instead of `latest`. |
-| **Evidence that settles it** | M1 step 17 (a forced outage triggers an alert). |
+| **Resolved** | **(a)**, at the M1 gate (2026-10-19). The maintainer signs up. |
+| **Later option** | Self-hosted Uptime Kuma on a separate VPS (about €3.81 a month). If it's built: a different OVH datacenter from production, so one outage doesn't take out both; a free external check on Kuma itself, so a dead monitor is noticed; its UI behind its own tunnel and Access, and never on `*.vikingthe.dev`, which receives the session cookie; set up like M0. It could share the VPS of a future staging environment (D7), with a memory limit. |
+| **Evidence** | M1 step 19 (a forced outage triggers an alert). |
 | **ADR** | No. |
 
 ### D7: Staging
@@ -145,7 +150,7 @@ Recommendation, detailed in ADR 0006 and applied in `api-contract.md`:
 - There are four tunnels: `ssh.`, `beszel.`, `coolify.`, and a catch-all that sends the apex and every other `*.vikingthe.dev` to Coolify's Traefik.
 - Everything else is blocked by OVH's edge firewall. It's the only layer in front of Docker-published ports and sshd, because those bypass `ufw` (D20). All traffic arrives through the tunnels.
 
-**Consequence:** the API can trust `CF-Connecting-IP`. The scheme Coolify domains need (`http://` vs `https://`) is still settled in M1 step 11. Merging the tunnels is optional and not recommended: separate tunnels mean separate credentials.
+**Consequence:** the API can trust `CF-Connecting-IP`. The scheme Coolify domains need (`http://` vs `https://`) is still settled in M1 step 14. Merging the tunnels is optional and not recommended: separate tunnels mean separate credentials.
 
 **Done in M0:** `cloudflared` moved from `root` to an unprivileged `cloudflared` system user, under hardened systemd units. Cloudflare's packaged service runs as root, so it wasn't used. All tunnels force `http2`, because QUIC over UDP fails through OVH's firewall. **ADR:** yes, 0003.
 
@@ -169,7 +174,7 @@ Recommendation, detailed in ADR 0006 and applied in `api-contract.md`:
 | (b) A test account on production with its credential in GitHub Actions | Adds a secret that CLAUDE.md doesn't allow. |
 | (c) Run authenticated tests against production only, by hand | Slow and easy to skip. |
 
-**Recommendation:** (a) for every PR, plus production smoke checks that need no login after each deploy, plus the human-run session check in M1 step 15. Anything Coolify- or Cloudflare-specific is verified once in M1 and then by the smoke suite. **ADR:** recorded in 0002.
+**Recommendation:** (a) for every PR, plus production smoke checks that need no login after each deploy, plus the human-run session check in M1 step 17. Anything Coolify- or Cloudflare-specific is verified once in M1 and then by the smoke suite. **ADR:** recorded in 0002.
 
 ### D12: Design token pipeline
 
@@ -191,7 +196,9 @@ Recommendation, detailed in ADR 0006 and applied in `api-contract.md`:
 
 ### D16: When migrations run
 
-**Recommendation:** at API startup, through `diesel_migrations` with an advisory lock, and only expand-style migrations (add a column, add a table). Destructive migrations wait for a later release, following D4's expand-then-contract rule. Decide in M2.
+**Recommendation:** at API startup, through `diesel_migrations` with an advisory lock, and only expand-style migrations (add a column, add a table). Destructive migrations wait for a later release, following D4's expand-then-contract rule.
+
+**Resolved (M1 gate, 2026-10-19):** as recommended, recorded in ADR 0005. It comes into M1 with PostgreSQL.
 
 ### D17: R2 layout for the file drop
 
@@ -240,3 +247,27 @@ Accounts are wanted, but gated apps such as Stash must not be open to the whole 
 - Bind sshd's socket to `127.0.0.1:52843`, since only the tunnel uses it. OVH's KVM console stays as the fallback.
 - Bind Coolify's `8000`, `6001` and `6002` to `127.0.0.1`, if Coolify supports a lasting override.
 - Remove passwordless sudo from `ubuntu`.
+
+### D21: Error tracking
+
+| | |
+|---|---|
+| **Option** | Sentry through the GitHub Student Developer Pack: 50K errors and 100K transactions, for 1 year, renewable while the maintainer is a student. It's the only pack offer the maintainer wants to use (2026-10-19). |
+| **Recommendation** | Server-side only: the `sentry` crate in the API, and Astro's server runtime. No browser SDK: it would add tens of KB to every page and widen the CSP. Use Sentry's EU data region (GDPR), scrub request bodies, cookies and headers, and send no user identifiers beyond the UUID. The DSN is a production secret in Coolify. |
+| **Cost of leaving** | Low: removing it is a dependency and an environment variable. The pack expiring doesn't break anything. |
+| **Evidence that settles it** | The maintainer decides at the M2 or M3 gate. A forced error appears in Sentry with no cookie, token or email in the event. |
+| **ADR** | Yes, if adopted (a new category of external dependency). |
+
+### D22: Security hardening: development secrets from Proton Pass
+
+**Proposal for later** (the maintainer, 2026-10-19). Like D20's improvements, it's not scheduled.
+
+| | |
+|---|---|
+| **Today** | Real development credentials live in plain text in `~/.config/vikingthedev/secrets.env` (mode `600`), loaded only by the human with `scripts/with-secrets <cmd>`. |
+| **Proposal** | `scripts/with-secrets` would wrap Proton Pass's official CLI: `pass-cli run --env-file <template> -- <cmd>`. The template would hold only `pass://<vault>/<item>/<field>` references, never values, and the plain-text file would go away. Whether `pass-cli run` masks values in output is unverified, and doesn't change the rule that its output never reaches Claude. Production secrets stay in Coolify. |
+| **Availability** | Sources disagree on which plans include the CLI. Proton's announcement lists Pass Plus, Family, Professional and every bundle, which covers the maintainer's Unlimited plan. Check Proton's current docs for the exact flags. |
+| **Risk to close first** | While `pass-cli` is logged in, any process running as the maintainer can call it, including Claude's shell commands. The boundary is the sandbox; a Bash deny rule for `pass-cli` is only a speed bump (`docs/claude-code-setup.md`). Before adopting it, the human confirms that: `pass-cli`'s session and config storage is under a sandbox read-denied path; Proton's API hosts aren't in the sandbox's allowed network domains; and, if it keeps its session key in the OS keyring, the D-Bus socket (`/run/user/<uid>/bus`) is unreachable from the sandbox. The human also adds a Read-tool deny rule for `pass-cli`'s state directory, because Claude's file tools run outside the sandbox. |
+| **Rules it touches** | Secret handling and `.claude/settings.json`, both stop-and-ask in CLAUDE.md. CLAUDE.md's "Real development credentials" section and `docs/claude-code-setup.md` change in the same commit. |
+| **Evidence that settles it** | The maintainer decides. Then: `scripts/with-secrets` works without the plain-text file, and the human checks, before any real credential is in the vault, that a `pass-cli` command that can't print secret values (a login-status check) fails from Claude's sandbox. |
+| **ADR** | No. It's cheap to reverse. |

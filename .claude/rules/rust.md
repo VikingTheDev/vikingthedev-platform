@@ -77,7 +77,7 @@ A budget regression is a failing test, not a judgment call.
 | Reads | p50 ≤ 10 ms, p99 ≤ 50 ms |
 | Session check | p99 ≤ 5 ms |
 
-Measure with `oha` against staging, nightly rather than per PR.
+Measure with `oha` from the maintainer's machine against production `/api`, and from inside the VPS against `:8081`, never during backups (ADR 0002). Server-side timings come from `tracing`.
 
 ## Caching on API responses
 
@@ -94,8 +94,8 @@ Measure with `oha` against staging, nightly rather than per PR.
   - Put `#[tracing::instrument(skip_all, fields(…))]` on handlers and domain entry points.
 - **Unit tests** go in `#[cfg(test)] mod tests`, next to the code.
 - **HTTP tests** live in `crates/api/tests/` and drive the `Router` directly with `tower::ServiceExt::oneshot`.
-- **Database:** the PostgreSQL library isn't decided yet. Ask before choosing one.
-- **Session store:** whether `tower-sessions` hashes session IDs at rest is unverified. Check before adopting it. The fallback is a hand-rolled store on `fred`.
+- **Database:** Diesel through `diesel-async` with a pool in `AppState` (ADR 0005). Map query errors to domain `thiserror` enums. Migrations run at startup under an advisory lock, and are expand-only; destructive changes wait for a later release (D16).
+- **Session store:** hand-rolled on the `redis` crate, sharing one `ConnectionManager`. `tower-sessions` was checked on 2026-10-19 and rejected: it stores raw IDs and has no per-user index (M1 gate).
 
 ## Sessions
 
@@ -137,6 +137,16 @@ __Secure-vt_sid=<base64url 256-bit random>; Domain=vikingthe.dev; Path=/; Secure
 - If that header is absent, require both an exact `Origin` allowlist and `Content-Type: application/json`.
 - Reject `same-site` with a 403. Every subdomain is same-site, so `SameSite` cookies don't protect against this.
 - `:8081` skips Fetch Metadata checks.
+
+## API conventions (ADR 0006)
+
+- **Errors:** RFC 9457 `application/problem+json`. `type` is a stable URI, `https://vikingthe.dev/problems/<code>`; `title` is fixed per type; `detail` is user-safe only; `instance` is `urn:uuid:<request-id>`. Validation errors add `errors: [{ field, code }]`.
+- **IDs:** UUIDv7 in newtypes, strings in JSON.
+- **Timestamps:** RFC 3339 in UTC with `Z`, in fields named `*_at`.
+- **Pagination:** cursor-based, `?limit=` (default 20, max 100) and an opaque `?cursor=`, returning `{ items, next_cursor }`. No offsets.
+- **Idempotency:** POSTs that create resources or send email require `Idempotency-Key`. Responses are kept in Valkey for 24 h, keyed by caller and key, with a body hash; a reused key with a different body gets 422 `idempotency_conflict`.
+- **Versioning:** no URL prefix.
+- **Breaking changes:** `oasdiff breaking` fails CI. Do expand then contract across separate PRs, because the API and the apps deploy separately.
 
 ## API contract
 

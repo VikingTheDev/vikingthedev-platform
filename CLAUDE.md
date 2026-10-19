@@ -80,7 +80,7 @@ The repo must be safe to make public at any moment. Assume an attacker has read 
   - the Coolify webhook URLs;
   - `CLOUDFLARE_API_TOKEN`, scoped to cache purge.
 
-  They are environment secrets on `staging` and `production`, so pull request jobs never see them. GHCR uses `GITHUB_TOKEN`.
+  They are environment secrets on `production` (and on `staging`, if one is ever added; ADR 0002), so pull request jobs never see them. GHCR uses `GITHUB_TOKEN`.
 - **Local development uses no real secrets.**
   - `compose.dev.yaml` runs PostgreSQL, Valkey and MinIO on `127.0.0.1`.
   - Their throwaway values come from the committed `dev.env`, which Claude may read and use.
@@ -132,7 +132,7 @@ A suite of websites, built by one maintainer: the homepage at `vikingthe.dev`, p
 - **Performance is the primary metric.**
 - A session started on the homepage must survive navigation to every app.
 
-**Stack:** Astro 7 + Svelte 5 (`@astrojs/node`); Rust (axum 0.8); PostgreSQL and Valkey as separate Coolify resources; Cloudflare R2; Coolify on Docker; GitHub Actions; Cloudflare in front of DNS. Workspace packages use the `@vikingthedev/` scope.
+**Stack:** Astro 7 + Svelte 5 (`@astrojs/node`); Rust (axum 0.8); PostgreSQL (Diesel through diesel-async, ADR 0005) and Valkey as separate Coolify resources; Cloudflare R2; Coolify on Docker; GitHub Actions; Cloudflare in front of DNS. Workspace packages use the `@vikingthedev/` scope.
 
 ```
 apps/<app>/            Astro + Svelte, one per host (apps/homepage/ first)
@@ -155,7 +155,7 @@ The repo is one monorepo, with pnpm and Cargo workspaces. There is no Turborepo 
 - **View transitions:** native cross-document view transitions within an app, and none across subdomains (the spec forbids cross-origin transitions). No `<ClientRouter />`.
 - **Rendering:** content pages are prerendered and cached at the edge. Only logged-in pages render on demand.
 - **Deploys:** CI builds the images and Coolify pulls them. Coolify never builds, and Auto Deploy is off.
-- **Staging:** it lives on a separate registrable domain, never under `vikingthe.dev`.
+- **Staging:** none for now; a full stack in CI replaces it (ADR 0002). If one is added, it lives on a separate registrable domain, never under `vikingthe.dev`.
 - **Known risks:** ADR 0001 lists them, each with a fallback, and the scoped rules repeat the relevant ones. If you hit one, use its fallback and record the outcome in a new ADR.
 
 **New app:** add `apps/<name>/`, a CI path filter for it, a Coolify Docker Image resource for it, and an `/api` path domain for its host on the Rust resource.
@@ -179,7 +179,7 @@ The repo is one monorepo, with pnpm and Cargo workspaces. There is no Turborepo 
 | API shapes | The contract check in `.claude/rules/rust.md` |
 | Bundle size | `size-limit` in the affected app |
 | Every commit | `gitleaks git --staged` (`gitleaks protect --staged` on older versions); also `cargo deny check` and `pnpm audit --prod` once those workspaces exist |
-| Session, auth or CSRF | Playwright on staging: cookie attributes; the session appears in a subdomain app's server-rendered HTML; after logout, `/api/me` is 401 on every host; `same-site` and `cross-site` CSRF requests get 403 while a `same-origin` control succeeds |
+| Session, auth or CSRF | Playwright on the CI stack (ADR 0002): cookie attributes; the session appears in a subdomain app's server-rendered HTML; after logout, `/api/me` is 401 on every host; `same-site` and `cross-site` CSRF requests get 403 while a `same-origin` control succeeds |
 | Transitions | The `pagereveal` test, which reads `event.viewTransition`: a transition fires within an app and not across subdomains |
 
 These commands describe the planned setup. If one doesn't exist yet, say so instead of inventing a substitute.
@@ -193,6 +193,5 @@ These commands describe the planned setup. If one doesn't exist yet, say so inst
 - splitting the monorepo, or publishing `packages/ui`;
 - loosening a performance budget;
 - touching `.claude/settings.json`, secret handling, the CSP or security headers, or workflow permissions;
-- adding a dependency that runs install scripts, or a new third-party GitHub Action;
-- choosing the PostgreSQL library, which hasn't been decided yet;
+- adding a dependency that runs install scripts, or a third-party GitHub Action not on `ci-deploy.md`'s approved list;
 - committing without a completed review.
