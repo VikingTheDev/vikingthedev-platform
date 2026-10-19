@@ -1,3 +1,7 @@
+---
+import SessionGreeting from "@/components/SessionGreeting.astro";
+---
+
 <!doctype html>
 <html lang="en">
   <head>
@@ -10,6 +14,18 @@
     <main>
       <h1>vikingthe.dev</h1>
       <p>Under construction.</p>
+      <p class="session">
+        <SessionGreeting server:defer>
+          <span slot="fallback"></span>
+        </SessionGreeting>
+      </p>
     </main>
   </body>
 </html>
+
+<style>
+  /* Fixed size, so swapping the fallback for the island shifts nothing (homepage spec). */
+  .session {
+    block-size: 1.5em;
+  }
+</style>

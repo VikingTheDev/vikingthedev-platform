@@ -1,5 +1,6 @@
 import node from "@astrojs/node";
 import svelte from "@astrojs/svelte";
+import { CSP_DIRECTIVES } from "@vikingthedev/config/csp";
 import { defineConfig, envField } from "astro/config";
 
 export default defineConfig({
@@ -21,6 +22,8 @@ export default defineConfig({
   },
   security: {
     checkOrigin: true,
+    // Hashes, never nonces: prerendered HTML is edge-cached (security-code.md).
+    csp: { directives: CSP_DIRECTIVES },
     // Read at build time; the reserved .test host lets the CI stack run the image that ships.
     allowedDomains: [
       { hostname: "vikingthe.dev", protocol: "https" },

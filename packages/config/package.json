@@ -1,0 +1,8 @@
+{
+  "name": "@vikingthedev/config",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./csp": "./csp.js"
+  }
+}

@@ -59,7 +59,7 @@ No endpoints of its own. It uses:
 
 - `/` is public and cacheable. The server-island response and `/account` send `Cache-Control: private, no-store`.
 - CSP: no `{@html}` or `set:html`.
-  - [ ] The built HTML carries a CSP `<meta>` with `script-src` hashes and no `unsafe-inline`, and the server island still loads under it (M1a step 5).
+  - [ ] The built HTML of `/` carries a CSP `<meta>` with `script-src` hashes and no `unsafe-inline`, and the server island still loads under it (M1a step 5). On-demand `/account` carries the same policy as a response header.
 - `security.checkOrigin` on, and `security.allowedDomains` lists `vikingthe.dev` and `vikingthe.test`, so the CI stack tests the image that ships; `.test` is reserved (RFC 6761) (the maintainer, 2026-10-19). Astro probably reads this at build time; M1a step 1 confirms it for Astro 7.
 - Hidden from search engines until M5, so the placeholder isn't indexed: every page carries `<meta name="robots" content="noindex">` (the maintainer, 2026-10-19). No `robots.txt` blocks crawling, because a crawler that can't fetch a page never sees its `noindex`. M5's checks require the tag to be gone.
   - [ ] CI stack: the HTML of `/` and `/account` contains that tag.

@@ -60,7 +60,7 @@ No endpoints of its own. It uses:
   - [ ] Production (M1b step 12): `cf-cache-status` on `/` is `DYNAMIC` or `BYPASS`.
 - The logout island sends `Content-Type: application/json`; the browser adds `Sec-Fetch-Site: same-origin`.
 - CSP: no `{@html}` or `set:html`.
-  - [ ] The built HTML carries a CSP `<meta>` with `script-src` hashes and no `unsafe-inline`, and the logout island still hydrates under it (M1a step 5).
+  - [ ] `/` carries a `Content-Security-Policy` response header with `script-src` hashes and no `unsafe-inline` (Astro sends a header, not a `<meta>`, on on-demand pages), and the logout island still hydrates under it (M1a step 5).
 - `security.checkOrigin` on, and `security.allowedDomains` lists canary's host and `canary.vikingthe.test`, so the CI stack tests the image that ships; `.test` is reserved (RFC 6761) (the maintainer, 2026-10-19).
 - Hidden from search engines with `<meta name="robots" content="noindex">` (the maintainer, 2026-10-19). No `robots.txt` blocks crawling, because a crawler that can't fetch a page never sees its `noindex`.
   - [ ] CI stack: the HTML of `/` contains that tag.

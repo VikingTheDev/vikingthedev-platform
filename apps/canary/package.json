@@ -11,10 +11,13 @@
     "@astrojs/node": "^11.1.8",
     "@astrojs/svelte": "^9.1.0",
     "astro": "^7.4.0",
+    "openapi-fetch": "^0.17.0",
     "svelte": "^5.57.2"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
+    "@vikingthedev/api-types": "workspace:*",
+    "@vikingthedev/config": "workspace:*",
     "svelte-check": "^4.7.7",
     "typescript": "~6.0.0"
   }
