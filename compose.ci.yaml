@@ -8,6 +8,9 @@ services:
       - --entrypoints.websecure.address=:443
       - --providers.file.filename=/etc/traefik/dynamic.yaml
       - --ping=true
+    # CI publishes 443 so the runner's Lighthouse can reach the stack; unset, Docker picks a free loopback port.
+    ports:
+      - "127.0.0.1:${CI_STACK_HTTPS_PORT:-}:443"
     volumes:
       - ./ci-stack/traefik.yaml:/etc/traefik/dynamic.yaml:ro
       - ./ci-stack/certs:/certs:ro

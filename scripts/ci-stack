@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # Runs the Playwright suite against the CI stack (ADR 0002). Needs Docker, openssl and a `pnpm install`.
+# Usage: scripts/ci-stack [playwright args]   start, test, then stop
+#        scripts/ci-stack up | test [playwright args] | down   one stage, for CI
 set -euo pipefail
 
 readonly COMPOSE=(docker compose --file compose.ci.yaml)
@@ -7,19 +9,36 @@ readonly CERT_DIR=ci-stack/certs
 
 cd "$(dirname "$0")/.."
 
-# A fresh self-signed certificate per run; nothing trusts it, so Playwright ignores HTTPS errors.
-mkdir -p "$CERT_DIR"
-openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -days 1 \
-  -subj "/CN=vikingthe.test" \
-  -addext "subjectAltName=DNS:vikingthe.test,DNS:*.vikingthe.test" \
-  -keyout "$CERT_DIR/key.pem" -out "$CERT_DIR/cert.pem"
+start_stack() {
+  # A fresh self-signed certificate per run; nothing trusts it, so Playwright ignores HTTPS errors.
+  mkdir -p "$CERT_DIR"
+  openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -days 1 \
+    -subj "/CN=vikingthe.test" \
+    -addext "subjectAltName=DNS:vikingthe.test,DNS:*.vikingthe.test" \
+    -keyout "$CERT_DIR/key.pem" -out "$CERT_DIR/cert.pem"
+  "${COMPOSE[@]}" up --build --detach --wait
+}
 
-# The suite runs as the caller, so it can write its results into the mounted repo.
-export UID
-GID="$(id -g)"
-export GID
-mkdir -p e2e/test-results
+run_suite() {
+  # The suite runs as the caller, so it can write its results into the mounted repo.
+  export UID
+  GID="$(id -g)"
+  export GID
+  mkdir -p e2e/test-results
+  "${COMPOSE[@]}" run --rm playwright "$@"
+}
 
-trap '"${COMPOSE[@]}" down --volumes' EXIT
-"${COMPOSE[@]}" up --build --detach --wait
-"${COMPOSE[@]}" run --rm playwright "$@"
+stop_stack() {
+  "${COMPOSE[@]}" down --volumes
+}
+
+case "${1:-}" in
+  up) start_stack ;;
+  test) run_suite "${@:2}" ;;
+  down) stop_stack ;;
+  *)
+    trap stop_stack EXIT
+    start_stack
+    run_suite "$@"
+    ;;
+esac

@@ -12,11 +12,18 @@ http:
     homepage:
       rule: Host(`vikingthe.test`)
       service: homepage
+      middlewares: [compress]
       tls: {}
     canary:
       rule: Host(`canary.vikingthe.test`)
       service: canary
+      middlewares: [compress]
       tls: {}
+  middlewares:
+    # Lighthouse's script budget counts transfer bytes, which Cloudflare compresses in production (step 7b review).
+    compress:
+      compress:
+        encodings: [gzip]
   services:
     api:
       loadBalancer:
