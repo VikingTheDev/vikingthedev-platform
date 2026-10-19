@@ -13,7 +13,7 @@
 | D4 | API conventions | Recommended | Maintainer approves | 0006 (proposed) |
 | D5 | Backups and restore | **Resolved: OVH daily backups, no restore drill.** Nightly `pg_dump` recommended | Maintainer | No |
 | D6 | Monitoring and external uptime | Recommended | Maintainer signs up (M1 step 17) | No |
-| D7 | Staging | **Resolved: none for now** | — | 0002 (proposed) |
+| D7 | Staging | **Resolved: none for now** (revisited 2026-10-19, on hold; findings under D7) | — | 0002 (proposed) |
 | D8 | GDPR basics | Recommended | Claude drafts, maintainer approves | No |
 | D9 | Ingress through Cloudflare Tunnel | **Resolved: facts recorded** | — | 0003 (proposed) |
 | D10 | Admin hosts on the cookie domain | **Resolved and applied: Cloudflare Access** (M0) | — | 0003 (proposed) |
@@ -110,6 +110,20 @@ Recommendation, detailed in ADR 0006 and applied in `api-contract.md`:
 
 **Resolved:** none for now (the maintainer, 2026-10-18). The build stays staging-ready: cookie domain, hosts and the `Origin` allowlist come from config. See ADR 0002.
 
+**Revisited 2026-10-19 and put on hold.** The maintainer leaned toward staging on a separate VPS, then deferred it. When staging comes back, start from these findings:
+
+| Topic | Finding |
+|---|---|
+| Money | About $12 a year for a second `.dev` domain (registrar list price, estimate), plus an OVH VPS 1 (2 vCores, 4 GB RAM, 50 GB disk) at €3.81 a month, as quoted by the maintainer on 2026-10-19. Cloudflare (zone, tunnel, Universal SSL, Access for up to 50 users), an R2 bucket within the free 10 GB, OAuth apps, Mailpit and Actions minutes cost nothing |
+| Domain | `vikingthe-staging.dev`: the same TLD, so `.dev`'s HSTS preload gives staging the same HTTPS, `Secure` and `__Secure-` cookie behavior as production; clearly not production; a separate registrable domain, so the production cookie never reaches it. It was unregistered on 2026-10-19 (RDAP 404), as were `vikingthe-stage.dev` and `vtstaging.dev` |
+| Admin hosts | Never put them on the staging domain: staging runs less-proven code on the same site, so an XSS bug there could send same-site requests to production's Coolify. A third domain (for example `vikingthe-ops.dev`, also unregistered on 2026-10-19) is the clean option for ADR 0003 point 4 |
+| Why a separate VPS | Staging on the production VPS steals CPU from production during `oha` and test runs, skews its own numbers with that contention, and shares a host with production if a container is compromised |
+| VPS sizing | 4 GB fits staging with smaller limits than `capacity.md`'s production values (for example PostgreSQL about 768 MiB, the API 256 MiB), but not its own Coolify, whose documented minimum is 2 GB (measured use here is about 0.6 GiB). Add it to the existing Coolify as a remote server over SSH, which gives production's Coolify root SSH on the staging host. Open: how that SSH gets through staging's OVH firewall, either an allowlist for the production VPS's IP or SSH through a Cloudflare tunnel with Access and a service token. The future staging ADR settles it |
+| Real cost | Upkeep, not money: every Coolify resource, environment variable and OAuth app exists twice, and the Cloudflare cache, header and Access rules must be copied to the second zone by hand, where they drift. Each deploy to `main` takes roughly 3–6 minutes longer (estimate) |
+| Authenticated E2E | Staging alone doesn't solve logging in. Either the staging image carries the `e2e` test login, so it isn't the exact production binary, or a staging test account's credential becomes a secret in a `staging` GitHub environment. If Access protects staging, Playwright also needs an Access service token. Both secrets are outside CLAUDE.md's allowed Actions secrets, so that path needs a CLAUDE.md security change the maintainer approves. The `e2e` path conflicts with ADR 0002 point 3, which never compiles `e2e` into a pushed image: a staging image built with it is a different GHCR artifact from `:prod` |
+| What it adds | Coolify, Traefik-through-tunnel and Cloudflare regressions, plus real TTFB through the edge, are caught before production instead of by the post-deploy smoke checks and a rollback. It also restores what ADR 0002 drops from ADR 0001: the Lighthouse CI gate on staging and the nightly `oha` run against staging |
+| How to add it | On top of the CI stack in ADR 0002, not instead of it: the CI stack still tests every PR without secrets. Staging is then a config change (ADR 0002 point 4), a second VPS set up like M0 (tunnel, OVH firewall, unprivileged `cloudflared`, swap, Access if private), and a new ADR superseding the staging parts of ADR 0002 |
+
 ### D8: GDPR basics (Norway, EEA)
 
 | Item | Recommendation |
@@ -142,10 +156,10 @@ Recommendation, detailed in ADR 0006 and applied in `api-contract.md`:
 | Option | Notes |
 |---|---|
 | (a) Cloudflare Access (free for up to 50 users) in front of all three | Strangers can't reach them at all. The cookie still flows to them. |
-| (b) Move them to a separate, cheap registrable domain | The cookie never reaches them. Costs a domain, which could later double as the staging domain. |
+| (b) Move them to a separate, cheap registrable domain | The cookie never reaches them. Costs a domain, which is never the staging domain (see D7). |
 | (c) Accept as is | Coolify's login page is exposed to the internet. |
 
-**Resolved:** (a) now (the maintainer, 2026-10-18), and (b) when a second domain is bought. **Applied in M0 (2026-10-18):** login by emailed one-time PIN or Cloudflare. There's a Bypass rule only for `coolify.vikingthe.dev/api/v1/deploy`, which Coolify's deploy-only token still protects. **ADR:** recorded in 0003.
+**Resolved:** (a) now (the maintainer, 2026-10-18), and (b) when a dedicated admin domain is bought (never the staging domain; see D7). **Applied in M0 (2026-10-18):** login by emailed one-time PIN or Cloudflare. There's a Bypass rule only for `coolify.vikingthe.dev/api/v1/deploy`, which Coolify's deploy-only token still protects. **ADR:** recorded in 0003.
 
 ### D11: Authenticated E2E without staging
 

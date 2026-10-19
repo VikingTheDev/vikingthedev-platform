@@ -43,4 +43,8 @@ There are two gaps without staging. Authenticated end-to-end tests would have to
 
 - An app holds data whose loss or exposure would hurt other people, beyond the maintainer's friends.
 - A production incident is traced to something only staging would have caught.
-- A second domain is bought anyway, for example for the admin hosts in ADR 0003.
+- The maintainer decides to fund a second VPS and domain for staging.
+
+Whatever domain staging uses is never shared with the admin hosts in ADR 0003.
+
+The findings from revisiting staging on 2026-10-19 (costs, domain, a separate VPS, sizing, authenticated E2E) are in `decisions.md` under D7.

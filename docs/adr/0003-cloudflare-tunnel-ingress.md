@@ -27,7 +27,7 @@ What a tunnel changes:
    - Cloudflare Access goes in front of all three now (the maintainer agreed on 2026-10-18).
    - One exception: a Bypass rule on `coolify.vikingthe.dev/api/v1/deploy`, so CI's deploy webhook works. Coolify's deploy-only token still protects that path.
    - Our own `admin.vikingthe.dev` app also sits behind Access, if D19 is accepted. Access only guards requests that arrive on `admin.`, and `/api` is routed on every host. So the API itself must check `Host` and the `Cf-Access-Jwt-Assertion` on `/api/admin/*` (D1g).
-   - They move to a separate registrable domain when one is bought, so the session cookie never reaches them.
+   - They move to a dedicated admin domain when one is bought (never the staging domain; see D7 in `decisions.md`), so the session cookie never reaches them.
 5. **The wildcard record stays.** It points at our own tunnel and Traefik, and unknown hosts get Traefik's 404, so nothing dangles. Retired apps still have their Traefik routes removed.
 
 ## Consequences

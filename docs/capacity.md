@@ -48,7 +48,7 @@
 | Distributed-systems demo (extra nodes) | 0.3 GiB | 1 GiB, all nodes combined | 0.5 / 2 | Only if the live-cluster version of Quorum is built (`apps.md`) |
 | Nightly `pg_dump` | brief | — | 1 core for minutes | Scheduled at night |
 | **Production total** | **~3.1 GiB** | **~5.8 GiB of limits, plus ~0.65 GiB unlimited (Coolify stack, cloudflared)** | **~1.5 / bursts up to all 8** | |
-| Staging (future: API, PostgreSQL, Valkey and apps) | ~1.5 GiB | ~3.5 GiB | ~0.5 | Only if it shares the VPS; it could also live on a small second VPS |
+| Staging (future: API, PostgreSQL, Valkey and apps) | ~1.5 GiB | ~3.5 GiB | ~0.5 | Only if it shares the VPS. If staging returns, the leaning is a separate OVH VPS 1 (4 GB) with smaller limits; see D7 in `decisions.md` |
 
 ## Headroom
 
