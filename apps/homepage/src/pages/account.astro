@@ -1,0 +1,22 @@
+---
+export const prerender = false;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+const user = Astro.locals.user?.user;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Account · vikingthe.dev</title>
+  </head>
+  <body>
+    <main>
+      <h1>Account</h1>
+      {user ? <p>Logged in as {user.display_name}.</p> : <p>Not logged in.</p>}
+    </main>
+  </body>
+</html>

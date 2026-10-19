@@ -1,6 +1,6 @@
 ---
 Astro.response.headers.set("Cache-Control", "private, no-store");
-// TODO(step 6): show the display name from `:8081/session` once middleware sets `Astro.locals.user`.
+const displayName = Astro.locals.user?.user.display_name ?? "anonymous";
 ---
 
-<span>anonymous</span>
+<span>{displayName}</span>

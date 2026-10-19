@@ -1,0 +1,17 @@
+{
+  "name": "@vikingthedev/session",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "@types/node": "^24.12.0",
+    "@vikingthedev/api-types": "workspace:*",
+    "typescript": "~6.0.0"
+  }
+}

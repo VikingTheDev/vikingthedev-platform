@@ -53,7 +53,7 @@ No endpoints of its own. It uses:
 
 | Method | Path | Request | Response | Auth | Notes |
 |---|---|---|---|---|---|
-| GET | `:8081/session` | The forwarded `Cookie` header | 200 `SessionUser` · 401 | Session | Called by Astro middleware, 50 ms timeout, anonymous on failure |
+| GET | `:8081/session` | Only the `__Secure-vt_sid` cookies, repeats included (step 6 gate) | 200 `SessionUser` · 401 | Session | Called by Astro middleware, 50 ms timeout, anonymous on failure |
 
 ## Auth and security
 

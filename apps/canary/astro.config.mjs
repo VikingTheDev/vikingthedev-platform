@@ -17,6 +17,13 @@ export default defineConfig({
         access: "public",
         default: "dev",
       }),
+      // Read at run time. The default is the local API; production sets the internal Docker address.
+      API_INTERNAL_URL: envField.string({
+        context: "server",
+        access: "secret",
+        url: true,
+        default: "http://127.0.0.1:8081",
+      }),
     },
     validateSecrets: true,
   },

@@ -120,7 +120,7 @@ Source: [Svelte best practices](https://svelte.dev/docs/svelte/best-practices).
 
 - Astro never reads Valkey.
 - Middleware (`src/middleware.ts`) runs on on-demand routes.
-  - It forwards the `Cookie` header to `GET http://<api-internal>:8081/session`, with a 50 ms timeout.
+  - It forwards only the `__Secure-vt_sid` cookies (repeats included, so the API still treats several distinct tokens as anonymous) to `GET http://<api-internal>:8081/session`, with a 50 ms timeout (step 6 gate, 2026-10-19).
   - A timeout means the user is treated as anonymous.
   - It sets `Astro.locals.user`.
 - On prerendered routes, middleware does nothing.

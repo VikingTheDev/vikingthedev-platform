@@ -2,7 +2,9 @@
 import LogoutButton from "@/components/LogoutButton.svelte";
 
 export const prerender = false;
-// TODO(step 6): show the logout button only to a logged-in user, once middleware sets Astro.locals.user.
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+const user = Astro.locals.user?.user;
 ---
 
 <!doctype html>
@@ -16,7 +18,8 @@ export const prerender = false;
   <body>
     <main>
       <h1>canary</h1>
-      <LogoutButton client:idle />
+      <p>{user ? user.display_name : "anonymous"}</p>
+      {user && <LogoutButton client:idle />}
     </main>
   </body>
 </html>
