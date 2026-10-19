@@ -60,7 +60,7 @@ Writes need `Sec-Fetch-Site: same-origin`, or else an allowlisted `Origin` plus 
 | Method | Path | Request | Response | Auth | Milestone | Notes |
 |---|---|---|---|---|---|---|
 | GET | `/api/health` | — | 200 `{ status: "ok", sha: string }` | No | M1 | Also used by the deploy wait and the uptime check. `no-store` |
-| GET | `/api/me` | — | 200 `User` · 401 | Session | M1 | |
+| GET | `/api/me` | — | 200 `User` · 401 `unauthenticated` | Session | M1 | `private, no-store`. Several distinct session cookies count as no session (step 2 review) |
 | POST | `/api/auth/logout` | `{}` | 204, plus an expiring `Set-Cookie` with `Domain` | No | M1 | Idempotent. 204 with or without a session |
 | POST | `/api/test/login` | `{ display_name: string }` | 204, plus `Set-Cookie` · 422 | No | M1 | **Exists only in builds with the `e2e` feature** (D11). Production returns 404. Each call creates a new user, so every test gets its own (step 3 gate, 2026-10-19). Not in the published OpenAPI, which is built without `e2e`. Its 422 has no `errors` extension |
 | GET | `/api/status` | — | 200 `{ services: { name: string; state: "up" \| "degraded" \| "down"; checked_at: Timestamp }[] }` | No | M5 | Cached for 30 s in the API |
@@ -104,4 +104,4 @@ Every admin endpoint checks the role in the domain layer. It accepts requests on
 | Method | Path | Request | Response | Notes |
 |---|---|---|---|---|
 | GET | `/health` | — | 200 `{ status: "ok", sha: string }` | |
-| GET | `/session` | The forwarded `Cookie` header | 200 `SessionUser` · 401 | Astro middleware calls it with a 50 ms timeout. Includes role and grants, so gated apps can authorize their server-rendered pages without a second call. Budget: p99 ≤ 5 ms |
+| GET | `/session` | The forwarded `Cookie` header | 200 `SessionUser` · 401 `unauthenticated` (also with several distinct session cookies) | Astro middleware calls it with a 50 ms timeout. Includes role and grants, so gated apps can authorize their server-rendered pages without a second call. Budget: p99 ≤ 5 ms |

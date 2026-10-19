@@ -15,7 +15,7 @@ use utoipa::{
     },
 };
 
-use crate::sessions::SessionError;
+use crate::{request_id, sessions::SessionError, users::UserError};
 
 const PROBLEM_TYPE_BASE: &str = "https://vikingthe.dev/problems/";
 const PROBLEM_CONTENT_TYPE: &str = "application/problem+json";
@@ -40,6 +40,9 @@ pub struct Problem {
     kind: ProblemType,
     title: &'static str,
     status: u16,
+    /// `urn:uuid:<request-id>`, the same ID as the `X-Request-Id` header.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    instance: Option<String>,
 }
 
 impl ProblemType {
@@ -136,6 +139,7 @@ impl IntoResponse for ProblemType {
             kind: self,
             title: self.title(),
             status: self.status().as_u16(),
+            instance: request_id::current().map(|id| format!("urn:uuid:{id}")),
         };
         (
             self.status(),
@@ -154,6 +158,8 @@ impl IntoResponse for ProblemType {
 pub enum AppError {
     #[error(transparent)]
     Sessions(#[from] SessionError),
+    #[error(transparent)]
+    Users(#[from] UserError),
     #[error("could not build a header: {0}")]
     Header(#[from] InvalidHeaderValue),
 }

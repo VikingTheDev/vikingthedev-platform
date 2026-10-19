@@ -1,10 +1,14 @@
+mod routes;
+mod store;
+
 use std::fmt;
 
 use serde::Deserialize;
 use time::OffsetDateTime;
 use uuid::Uuid;
 
-use crate::sessions::{SessionError, SessionStore, SessionToken};
+pub use routes::{__path_me, __path_session, internal_routes, me, routes, session};
+pub use store::{UserError, create, find};
 
 const DISPLAY_NAME_MAX_CHARACTERS: usize = 64;
 
@@ -14,6 +18,10 @@ pub struct UserId(Uuid);
 impl UserId {
     pub fn generate() -> Self {
         Self(Uuid::now_v7())
+    }
+
+    pub fn as_uuid(self) -> Uuid {
+        self.0
     }
 }
 
@@ -55,23 +63,21 @@ impl TryFrom<String> for DisplayName {
     }
 }
 
+impl DisplayName {
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+pub struct User {
+    pub id: UserId,
+    pub display_name: DisplayName,
+    pub created_at: OffsetDateTime,
+}
+
 // Bidi overrides and isolates, zero-width characters and direction marks, and the BOM can make one name pass for another.
 fn is_invisible_formatting(character: char) -> bool {
     matches!(character, '\u{200B}'..='\u{200F}' | '\u{202A}'..='\u{202E}' | '\u{2066}'..='\u{2069}' | '\u{FEFF}')
-}
-
-/// Creates a user and logs them in; until M3 brings real login, this is how users come to exist.
-///
-/// # Errors
-/// Fails if the session store is unavailable.
-// TODO(step 6): insert the users row with `display_name` once PostgreSQL exists.
-#[tracing::instrument(skip_all)]
-pub async fn register_with_session(
-    sessions: &SessionStore,
-    _display_name: &DisplayName,
-    now: OffsetDateTime,
-) -> Result<SessionToken, SessionError> {
-    sessions.create(UserId::generate(), now).await
 }
 
 #[cfg(test)]

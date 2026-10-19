@@ -1,8 +1,9 @@
-//! The `e2e` tests need Valkey: `docker compose -f compose.dev.yaml up -d --wait`, or `VALKEY_URL`.
+//! The `e2e` tests need PostgreSQL and Valkey: `docker compose -f compose.dev.yaml up -d --wait`.
 mod common;
 
 use std::error::Error;
 
+use api::AppState;
 use axum::{
     body::Body,
     http::{Method, Request, StatusCode},
@@ -10,22 +11,29 @@ use axum::{
 };
 use tower::ServiceExt;
 
-async fn send_test_login(sec_fetch_site: &str, body: &str) -> Result<Response, Box<dyn Error>> {
+async fn send_test_login(
+    state: AppState,
+    sec_fetch_site: &str,
+    body: &str,
+) -> Result<Response, Box<dyn Error>> {
     let request = Request::builder()
         .method(Method::POST)
         .uri("/api/test/login")
         .header("sec-fetch-site", sec_fetch_site)
         .header("content-type", "application/json")
         .body(Body::from(body.to_owned()))?;
-    Ok(api::public_router(common::test_state()?)
-        .oneshot(request)
-        .await?)
+    Ok(api::public_router(state).oneshot(request).await?)
 }
 
 #[cfg(not(feature = "e2e"))]
 #[tokio::test]
 async fn production_builds_have_no_test_login() -> Result<(), Box<dyn Error>> {
-    let response = send_test_login("same-origin", r#"{"display_name":"Ada"}"#).await?;
+    let response = send_test_login(
+        common::test_state()?,
+        "same-origin",
+        r#"{"display_name":"Ada"}"#,
+    )
+    .await?;
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
     Ok(())
 }
@@ -48,7 +56,12 @@ mod e2e {
     }
 
     async fn log_in_as_new_user() -> Result<api::sessions::Session, Box<dyn Error>> {
-        let response = send_test_login("same-origin", r#"{"display_name":"Ada"}"#).await?;
+        let response = send_test_login(
+            common::migrated_state().await?,
+            "same-origin",
+            r#"{"display_name":"Ada"}"#,
+        )
+        .await?;
 
         assert_eq!(response.status(), StatusCode::NO_CONTENT);
         assert_eq!(
@@ -84,7 +97,8 @@ mod e2e {
             "{}",
             "not json",
         ] {
-            let response = send_test_login("same-origin", body).await?;
+            let response =
+                send_test_login(common::migrated_state().await?, "same-origin", body).await?;
             assert_eq!(
                 response.status(),
                 StatusCode::UNPROCESSABLE_ENTITY,
@@ -96,7 +110,12 @@ mod e2e {
 
     #[tokio::test]
     async fn test_login_rejects_cross_origin_writes() -> Result<(), Box<dyn Error>> {
-        let response = send_test_login("same-site", r#"{"display_name":"Ada"}"#).await?;
+        let response = send_test_login(
+            common::migrated_state().await?,
+            "same-site",
+            r#"{"display_name":"Ada"}"#,
+        )
+        .await?;
         assert_eq!(response.status(), StatusCode::FORBIDDEN);
         Ok(())
     }

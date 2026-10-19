@@ -80,6 +80,16 @@ pub fn session_tokens_from(headers: &HeaderMap) -> impl Iterator<Item = SessionT
         .filter_map(SessionToken::parse)
 }
 
+/// The request's one session token. Several distinct ones mean a sibling subdomain planted extras, so none is trusted.
+pub fn sole_session_token(headers: &HeaderMap) -> Option<SessionToken> {
+    let mut tokens = session_tokens_from(headers);
+    let first = tokens.next()?;
+    let first_id = first.storage_id();
+    tokens
+        .all(|token| token.storage_id() == first_id)
+        .then_some(first)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -164,6 +174,41 @@ mod tests {
             .map(|found| found.storage_id())
             .collect();
         assert_eq!(found, vec![first.storage_id(), second.storage_id()]);
+        Ok(())
+    }
+
+    fn headers_with_tokens(tokens: &[&SessionToken]) -> Result<HeaderMap, InvalidHeaderValue> {
+        let mut headers = HeaderMap::new();
+        for token in tokens {
+            headers.append(
+                COOKIE,
+                HeaderValue::try_from(format!("__Secure-vt_sid={}", token.to_cookie_value()))?,
+            );
+        }
+        Ok(headers)
+    }
+
+    #[test]
+    fn sole_token_accepts_one_token_sent_once_or_repeated() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let token = SessionToken::generate()?;
+        for headers in [
+            headers_with_tokens(&[&token])?,
+            headers_with_tokens(&[&token, &token])?,
+        ] {
+            let found = sole_session_token(&headers).map(|found| found.storage_id());
+            assert_eq!(found, Some(token.storage_id()));
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn sole_token_rejects_none_or_several_distinct_tokens() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let first = SessionToken::generate()?;
+        let second = SessionToken::generate()?;
+        assert!(sole_session_token(&HeaderMap::new()).is_none());
+        assert!(sole_session_token(&headers_with_tokens(&[&first, &second])?).is_none());
         Ok(())
     }
 

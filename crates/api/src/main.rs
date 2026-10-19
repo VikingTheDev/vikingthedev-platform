@@ -4,7 +4,9 @@ use std::{
     sync::Arc,
 };
 
-use api::{AppState, cli::Command, config::Config, sessions::SessionStore, users::DisplayName};
+use api::{
+    AppState, cli::Command, config::Config, database, sessions::SessionStore, users::DisplayName,
+};
 use time::OffsetDateTime;
 
 use tokio::net::TcpListener;
@@ -25,9 +27,11 @@ async fn main() -> anyhow::Result<()> {
     let command = Command::parse(std::env::args().skip(1))?;
     let config = Config::from_environment()?;
     let state = AppState {
+        database: database::connect(&config.database_url)?,
         sessions: SessionStore::connect(&config.valkey_url)?,
         config: Arc::new(config),
     };
+    database::run_migrations(&state.config.database_url).await?;
     match command {
         Command::Serve => serve(state).await,
         Command::IssueSession(display_name) => issue_session(&state, &display_name).await,
@@ -49,9 +53,9 @@ async fn serve(state: AppState) -> anyhow::Result<()> {
 }
 
 async fn issue_session(state: &AppState, display_name: &DisplayName) -> anyhow::Result<()> {
-    let token =
-        api::users::register_with_session(&state.sessions, display_name, OffsetDateTime::now_utc())
-            .await?;
+    let now = OffsetDateTime::now_utc();
+    let user = api::users::create(&state.database, display_name, now).await?;
+    let token = state.sessions.create(user.id, now).await?;
     // The cookie value is this command's only output; `print_stdout` guards the server against stray prints.
     writeln!(std::io::stdout().lock(), "{}", token.to_cookie_value())?;
     Ok(())

@@ -38,12 +38,9 @@ async fn test_login(
     let Ok(Json(request)) = payload else {
         return Ok(ProblemType::Validation.into_response());
     };
-    let token = users::register_with_session(
-        &state.sessions,
-        &request.display_name,
-        OffsetDateTime::now_utc(),
-    )
-    .await?;
+    let now = OffsetDateTime::now_utc();
+    let user = users::create(&state.database, &request.display_name, now).await?;
+    let token = state.sessions.create(user.id, now).await?;
     let cookie = session_cookie(&token, &state.config.cookie_domain)?;
     Ok((
         StatusCode::NO_CONTENT,

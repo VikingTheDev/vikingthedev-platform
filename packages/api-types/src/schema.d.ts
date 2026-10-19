@@ -40,6 +40,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The logged-in user */
+        get: operations["me"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The session user, for server-side rendering
+         * @description Internal listener (`:8081`) only, never routed publicly. Astro forwards the browser's `Cookie` header.
+         */
+        get: operations["session"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -53,6 +90,8 @@ export interface components {
         /** @description The contract's `{}` body; the handler ignores it, so logout stays idempotent. */
         LogoutRequest: Record<string, never>;
         Problem: {
+            /** @description `urn:uuid:<request-id>`, the same ID as the `X-Request-Id` header. */
+            instance?: string | null;
             /** Format: int32 */
             status: number;
             title: string;
@@ -60,6 +99,21 @@ export interface components {
         };
         /** @enum {string} */
         ProblemType: "https://vikingthe.dev/problems/unauthenticated" | "https://vikingthe.dev/problems/reauthentication_required" | "https://vikingthe.dev/problems/forbidden" | "https://vikingthe.dev/problems/not_found" | "https://vikingthe.dev/problems/validation" | "https://vikingthe.dev/problems/idempotency_conflict" | "https://vikingthe.dev/problems/rate_limited" | "https://vikingthe.dev/problems/unavailable" | "https://vikingthe.dev/problems/internal";
+        /** @enum {string} */
+        Role: "user" | "admin";
+        SessionUser: {
+            /** @description App names the user may use, e.g. "stash". */
+            grants: string[];
+            role: components["schemas"]["Role"];
+            user: components["schemas"]["User"];
+        };
+        User: {
+            /** Format: date-time */
+            created_at: string;
+            display_name: string;
+            /** Format: uuid */
+            id: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -124,6 +178,80 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Health"];
+                };
+            };
+        };
+    };
+    me: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            /** @description No valid session */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Session store or database unavailable */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    session: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionUser"];
+                };
+            };
+            /** @description No valid session */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Session store or database unavailable */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };

@@ -72,6 +72,87 @@
           }
         }
       }
+    },
+    "/api/me": {
+      "get": {
+        "tags": [
+          "users"
+        ],
+        "summary": "The logged-in user",
+        "operationId": "me",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Session store or database unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/session": {
+      "get": {
+        "tags": [
+          "internal"
+        ],
+        "summary": "The session user, for server-side rendering",
+        "description": "Internal listener (`:8081`) only, never routed publicly. Astro forwards the browser's `Cookie` header.",
+        "operationId": "session",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionUser"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Session store or database unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -110,6 +191,13 @@
           "status"
         ],
         "properties": {
+          "instance": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`urn:uuid:<request-id>`, the same ID as the `X-Request-Id` header."
+          },
           "status": {
             "type": "integer",
             "format": "int32",
@@ -136,6 +224,57 @@
           "https://vikingthe.dev/problems/unavailable",
           "https://vikingthe.dev/problems/internal"
         ]
+      },
+      "Role": {
+        "type": "string",
+        "enum": [
+          "user",
+          "admin"
+        ]
+      },
+      "SessionUser": {
+        "type": "object",
+        "required": [
+          "user",
+          "role",
+          "grants"
+        ],
+        "properties": {
+          "grants": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "App names the user may use, e.g. \"stash\"."
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "user": {
+            "$ref": "#/components/schemas/User"
+          }
+        }
+      },
+      "User": {
+        "type": "object",
+        "required": [
+          "id",
+          "display_name",
+          "created_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
       }
     }
   }

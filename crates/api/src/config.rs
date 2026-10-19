@@ -7,8 +7,10 @@ use crate::sessions::cookie::CookieDomain;
 
 const HTTPS_SCHEME: &str = "https://";
 
-/// Runtime configuration (ADR 0002 point 4). Not `Debug`: `valkey_url` can hold a password.
+/// Runtime configuration (ADR 0002 point 4). Not `Debug`: the URLs can hold passwords.
 pub struct Config {
+    /// Plain TCP on the host's internal Docker network; TLS is mandatory if the database ever moves off-host (step 6 gate).
+    pub database_url: String,
     pub valkey_url: String,
     pub cookie_domain: CookieDomain,
     /// Exact `Origin` values accepted for writes when `Sec-Fetch-Site` is absent.
@@ -20,6 +22,7 @@ impl Config {
     /// Fails if a variable is missing or invalid.
     pub fn from_environment() -> anyhow::Result<Self> {
         Ok(Self {
+            database_url: required("DATABASE_URL")?,
             valkey_url: required("VALKEY_URL")?,
             cookie_domain: CookieDomain::try_from(required("COOKIE_DOMAIN")?)?,
             allowed_origins: parse_origins(&required("ALLOWED_ORIGINS")?)?,
