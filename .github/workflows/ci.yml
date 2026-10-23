@@ -365,18 +365,21 @@ jobs:
           push: true
           cache-from: type=gha,scope=${{ matrix.target }}
 
-  # Pipeline steps 2–5 of ci-deploy.md; smoke checks join the rollback trigger in phase 4.
+  # Pipeline steps 2–6 of ci-deploy.md.
   deploy:
     needs: [changes, publish]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.release != '[]'
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    # Room for the health wait, the smoke checks and a full rollback, each with its own bound.
+    timeout-minutes: 30
     environment: production
     permissions:
       contents: read
       packages: write
     strategy:
       fail-fast: false
+      # One at a time: a redeploying API briefly 404s on /api, which would fail another target's smoke checks.
+      max-parallel: 1
       matrix:
         include: ${{ fromJSON(needs.changes.outputs.release) }}
     concurrency:
@@ -396,6 +399,14 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      # Ready before the redeploy, so the smoke checks follow it at once.
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+      # No cache and no install scripts: this job later runs steps with production secrets.
+      - run: pnpm install --frozen-lockfile --ignore-scripts --filter @vikingthedev/e2e
+      - run: docker compose --file compose.ci.yaml --profile test pull playwright
       - name: Record what production runs now
         id: previous
         run: scripts/release record >> "$GITHUB_OUTPUT"
@@ -414,12 +425,20 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: scripts/release purge
-      # Only a failed redeploy or health wait rolls back (ci-deploy.md); a failed purge leaves a healthy release alone.
+      # Runs even after a failed purge: stale cached HTML can point at assets the new image lacks.
+      # The repo is mounted read-only in the Playwright container, so the tests can't alter the rollback's scripts.
+      - id: smoke
+        if: ${{ !cancelled() && steps.wait.outcome == 'success' }}
+        timeout-minutes: 6
+        env:
+          PLATFORM_DOMAIN: vikingthe.dev
+        run: scripts/ci-stack smoke
+      # A failed redeploy, health wait or smoke check rolls back (ci-deploy.md, ADR 0008); a failed purge alone doesn't.
       - name: Roll back to the recorded digest
         if: >-
           (failure() || cancelled())
           && steps.retag.outcome == 'success'
-          && (steps.redeploy.outcome != 'success' || steps.wait.outcome != 'success')
+          && (steps.redeploy.outcome != 'success' || steps.wait.outcome != 'success' || steps.smoke.outcome == 'failure' || steps.smoke.outcome == 'cancelled')
           && steps.previous.outputs.digest != ''
         env:
           PREVIOUS_DIGEST: ${{ steps.previous.outputs.digest }}
@@ -434,3 +453,26 @@ jobs:
           if [[ -n "$PREVIOUS_SHA" ]]; then scripts/release wait-for "$PREVIOUS_SHA" || waited=$?; fi
           if [[ -n "$PURGE_HOST" ]]; then scripts/release purge; fi
           exit "$waited"
+
+  # Lab timings from a runner are noisy, so a budget miss turns the run red but never rolls back (ADR 0008).
+  lighthouse-production:
+    needs: deploy
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.deploy.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: treosh/lighthouse-ci-action@3e7e23fb74242897f95c0ba9cabad3d0227b9b18 # 12.6.2
+        with:
+          urls: |
+            https://vikingthe.dev/
+            https://vikingthe.dev/account
+            https://canary.vikingthe.dev/
+          configPath: packages/config/lighthouserc.json
+          runs: 3
+          uploadArtifacts: true
+          temporaryPublicStorage: false

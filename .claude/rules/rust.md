@@ -130,8 +130,8 @@ __Secure-vt_sid=<base64url 256-bit random>; Domain=vikingthe.dev; Path=/; Secure
 - **`:8081`** is internal. It is reachable on the Docker network only, never gets a domain, and serves SSR and server islands.
 
 **Known risks** (ADR 0001):
-- Coolify might not route `/api` and `/` on the same host to different resources. The fallback is `api.vikingthe.dev` with CORS and an exact `Origin` allowlist. Ask first.
-- How a Coolify Docker Image resource reaches `:8081` is unconfirmed. The fallback is a shared Docker network, attached manually.
+- Coolify routes `Host && /api` and `/` on the same host to different resources (step 10, 2026-10-23), so there's no `api.` subdomain or CORS.
+- A Coolify Docker Image resource reaches `:8081` through a Coolify *Network Alias* (`vikingthedev-api`) on the API resource, not its UUID, which never resolves (step 11, 2026-10-23).
 
 **CSRF middleware** covers POST, PUT, PATCH and DELETE on `:8080`, and runs **before** auth.
 

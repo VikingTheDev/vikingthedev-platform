@@ -14,6 +14,12 @@
               { "maxNumericValue": 15000 }
             ]
           }
+        },
+        {
+          "matchingUrlPattern": "^https://vikingthe\\.dev/$",
+          "assertions": {
+            "server-response-time": ["error", { "maxNumericValue": 200 }]
+          }
         }
       ]
     }
