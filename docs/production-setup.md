@@ -17,7 +17,7 @@ Create everything in one project (`vikingthedev`), environment `production`, on 
 - **Environment variables:** runtime only. Leave *Build Variable* unticked. Lock the **secret** ones so the UI hides them.
 - **Deploys:** *Auto Deploy* off. Only the Deploy Webhook, called from Actions, deploys.
 - **Health check:** leave Coolify's health check off. The distroless images have no `curl` or shell for it, and CI's health wait replaces it.
-- **Hardening, app resources only** (API, homepage, canary): in *Custom Docker Options*, add `--read-only --cap-drop=ALL --security-opt=no-new-privileges`. If Coolify drops `--read-only`, note it in `plan.md`; the images already run as `nonroot` and were tested read-only (step 4). The database images start as root and drop privileges themselves, so they get `--security-opt=no-new-privileges` only.
+- **Hardening, app resources only** (API, homepage, canary): in *Custom Docker Options*, add `--read-only --cap-drop=ALL`. Coolify 4.4.6 rejects `--security-opt=no-new-privileges` here (`invalid security-opt: "\"no"`), so it's left out; `plan.md` (M1b phase 2) tracks its replacement. The database images start as root and drop privileges themselves, so they get no custom options.
 
 ### PostgreSQL
 
@@ -77,7 +77,7 @@ Both get the same environment:
 
 | Variable | Value |
 |---|---|
-| `API_INTERNAL_URL` | `http://<api-container-name>:8081`, the API's name on the `coolify` network, known after its first deploy. Step 11 confirms it resolves; the fallback is a shared Docker network with an `api` alias (ADR 0001) |
+| `API_INTERNAL_URL` | `http://<api-uuid>:8081`. The container name changes with every deploy (`<uuid>-<timestamp>`), but Coolify names the compose service after the resource's UUID, and Compose makes that a stable DNS alias on the `coolify` network (step 11) |
 | `PLATFORM_URL` | `https://vikingthe.dev` |
 
 ### Deploy token and webhooks
