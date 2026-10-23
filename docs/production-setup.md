@@ -57,7 +57,7 @@ Environment:
 
 | Variable | Value |
 |---|---|
-| `DATABASE_URL` | PostgreSQL's internal URL (**secret**). The server-side `statement_timeout` from the step 6a review waits until migrations run without it: a URL-wide cap would also cut off a long migration and the migration-lock wait |
+| `DATABASE_URL` | PostgreSQL's internal URL plus `?options=-c%20statement_timeout%3D2s` (**secret**; use `&` if the URL already has a `?`). The 2 s server-side cap backs up the API's 500 ms client timeout (step 6a review). Migrations lift it on their own connection, so add it only once an API from M1b phase 3b or later is deployed |
 | `VALKEY_URL` | Valkey's internal URL (**secret**) |
 | `COOKIE_DOMAIN` | `vikingthe.dev` |
 | `ALLOWED_ORIGINS` | `https://vikingthe.dev,https://canary.vikingthe.dev` |
