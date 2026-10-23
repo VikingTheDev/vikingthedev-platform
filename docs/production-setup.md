@@ -50,6 +50,7 @@ Use Coolify's Valkey type if this version has one; otherwise create a **Redis** 
 | Ports Exposes | `8080` (`:8081` stays internal: no domain, ever) |
 | Domains | `<scheme>://vikingthe.dev/api,<scheme>://canary.vikingthe.dev/api` |
 | Strip Prefixes (Advanced) | **off**: the API's routes start with `/api` |
+| Network Aliases | `vikingthedev-api`: the stable name the apps reach `:8081` by |
 | Memory | 512 MiB |
 
 `<scheme>` is `http`: the apps tunnel (`cloudflared@apps`) sends every host to `http://localhost:80`, Traefik's `http` entrypoint (step 14, 2026-10-23). Step 14 still confirms there's no redirect loop once the apps are deployed (ADR 0003).
@@ -77,7 +78,7 @@ Both get the same environment:
 
 | Variable | Value |
 |---|---|
-| `API_INTERNAL_URL` | `http://<api-uuid>:8081`. The container name changes with every deploy (`<uuid>-<timestamp>`), but Coolify names the compose service after the resource's UUID, and Compose makes that a stable DNS alias on the `coolify` network (step 11) |
+| `API_INTERNAL_URL` | `http://vikingthedev-api:8081`, the API's network alias (above). The container name changes with every deploy (`<uuid>-<timestamp>`), and the bare UUID is no DNS name at all (step 11, 2026-10-23) |
 | `PLATFORM_URL` | `https://vikingthe.dev` |
 
 ### Deploy token and webhooks
