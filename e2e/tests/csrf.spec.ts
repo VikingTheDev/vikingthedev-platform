@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 import { CANARY_URL, HOMEPAGE_URL, logIn } from "./hosts.ts";
+import { SMOKE } from "./tags.ts";
 
 const LOGOUT_URL = `${CANARY_URL}/api/auth/logout`;
 const FORBIDDEN_TYPE = "https://vikingthe.dev/problems/forbidden";
@@ -14,7 +15,7 @@ const forbiddenSenders = [
 ];
 
 for (const { site, origin } of forbiddenSenders) {
-  test(`a ${site} write gets 403 forbidden`, async ({ request }) => {
+  test(`a ${site} write gets 403 forbidden`, SMOKE, async ({ request }) => {
     const response = await request.post(LOGOUT_URL, {
       headers: { "sec-fetch-site": site, origin },
       data: {},
@@ -25,7 +26,7 @@ for (const { site, origin } of forbiddenSenders) {
   });
 }
 
-test("a same-origin write succeeds", async ({ request }) => {
+test("a same-origin write succeeds", SMOKE, async ({ request }) => {
   const response = await request.post(LOGOUT_URL, {
     headers: { "sec-fetch-site": "same-origin", origin: CANARY_URL },
     data: {},

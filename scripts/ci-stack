@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
-# Runs the Playwright suite against the CI stack (ADR 0002). Needs Docker, openssl and a `pnpm install`.
+# Runs the Playwright suite against the CI stack (ADR 0002), or its @smoke tests against production.
+# Needs Docker, openssl and a `pnpm install`.
 # Usage: scripts/ci-stack [playwright args]   start, test, then stop
 #        scripts/ci-stack up | test [playwright args] | down   one stage, for CI
+#        scripts/ci-stack smoke   no stack; needs PLATFORM_DOMAIN
 set -euo pipefail
 
 readonly COMPOSE=(docker compose --file compose.ci.yaml)
 readonly CERT_DIR=ci-stack/certs
+compose_run_options=()
 
 cd "$(dirname "$0")/.."
 
@@ -25,7 +28,7 @@ run_suite() {
   GID="$(id -g)"
   export GID
   mkdir -p e2e/test-results
-  "${COMPOSE[@]}" run --rm playwright "$@"
+  "${COMPOSE[@]}" run --rm "${compose_run_options[@]}" playwright "$@"
 }
 
 stop_stack() {
@@ -36,6 +39,11 @@ case "${1:-}" in
   up) start_stack ;;
   test) run_suite "${@:2}" ;;
   down) stop_stack ;;
+  smoke)
+    : "${PLATFORM_DOMAIN:?PLATFORM_DOMAIN must name the production domain}"
+    compose_run_options=(--no-deps --env "PLATFORM_DOMAIN=$PLATFORM_DOMAIN")
+    run_suite
+    ;;
   *)
     trap stop_stack EXIT
     start_stack

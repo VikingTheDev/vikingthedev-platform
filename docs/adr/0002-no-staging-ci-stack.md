@@ -1,6 +1,6 @@
 # ADR 0002: No staging environment for now; a full stack in CI instead
 
-- **Status:** Accepted (2026-10-19)
+- **Status:** Accepted (2026-10-19). Point 2's Lighthouse rollback trigger is superseded by ADR 0008.
 - **Date:** 2026-10-18
 - **Decider:** Solo maintainer
 - **Supersedes (in part):** in ADR 0001: §3's staging CI gate and "`oha` against staging"; §5's `:staging` tag, "Staging" and pipeline steps 3–5; and the staging parts of "CI guardrails"

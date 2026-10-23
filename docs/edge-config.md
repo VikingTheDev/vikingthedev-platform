@@ -1,6 +1,6 @@
 # Edge config: Cloudflare
 
-The Cloudflare settings for the `vikingthe.dev` zone, applied by hand in the dashboard. This file is the record: after any dashboard change, update it in the same PR (step 15 checks that the two match).
+The Cloudflare settings for the `vikingthe.dev` zone, applied by hand in the dashboard. This file is the record: after any dashboard change, update it in the same PR (step 15 checks that the two match). `e2e/tests/edge.spec.ts` asserts its headers and cache rules after every deploy, and a failure rolls the deploy back, so update that test in the same PR too.
 
 ## Cache Rules
 
