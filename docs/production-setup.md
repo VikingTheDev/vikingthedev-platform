@@ -62,8 +62,7 @@ Environment:
 | `VALKEY_URL` | Valkey's internal URL (**secret**) |
 | `COOKIE_DOMAIN` | `vikingthe.dev` |
 | `ALLOWED_ORIGINS` | `https://vikingthe.dev,https://canary.vikingthe.dev` |
-
-The trusted client-IP header (`CF-Connecting-IP`, ADR 0003) arrives as config in step 14.
+| `CLIENT_IP_HEADER` | `CF-Connecting-IP` (ADR 0003 point 3). Required from M1b phase 4a on: an API without it fails at startup |
 
 ### Homepage and canary
 

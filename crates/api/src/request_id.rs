@@ -21,7 +21,11 @@ pub fn current() -> Option<Uuid> {
 /// Gives every request a fresh `UUIDv7`. An incoming `X-Request-Id` is ignored, so clients can't plant values in our logs.
 pub async fn assign_request_id(request: Request, next: Next) -> Response {
     let id = Uuid::now_v7();
-    let span = tracing::info_span!("request", request_id = %id);
+    let span = tracing::info_span!(
+        "request",
+        request_id = %id,
+        client_ip = tracing::field::Empty
+    );
     let mut response = REQUEST_ID
         .scope(id, next.run(request))
         .instrument(span)

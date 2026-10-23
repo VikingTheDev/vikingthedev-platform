@@ -1,4 +1,6 @@
+pub mod access_log;
 pub mod cli;
+pub mod client_ip;
 pub mod config;
 pub mod csrf;
 pub mod database;
@@ -35,9 +37,15 @@ pub fn public_router(state: AppState) -> Router {
         state.clone(),
         csrf::reject_cross_origin_writes,
     ));
+    let client_ip_header = state.config.client_ip_header.clone();
     Router::new()
         .nest("/api", api)
         .with_state(state)
+        .layer(middleware::from_fn(access_log::log_request))
+        .layer(middleware::from_fn_with_state(
+            client_ip_header,
+            client_ip::record_client_ip,
+        ))
         .layer(middleware::from_fn(request_id::assign_request_id))
 }
 
@@ -45,5 +53,6 @@ pub fn internal_router(state: AppState) -> Router {
     health::routes()
         .merge(users::internal_routes())
         .with_state(state)
+        .layer(middleware::from_fn(access_log::log_request))
         .layer(middleware::from_fn(request_id::assign_request_id))
 }
