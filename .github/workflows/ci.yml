@@ -1,4 +1,4 @@
-# Checks for every PR and every push to main (M1b gate); pushes to main also publish the images (M1b phase 3a).
+# Checks for every PR and every push to main (M1b gate); pushes to main then publish and deploy the targets they change (M1b phase 3).
 name: CI
 
 on:
@@ -20,6 +20,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
+      contents: read
       pull-requests: read
     outputs:
       # Pushes to main, and edits to this workflow, check everything (ci-deploy.md).
@@ -28,9 +29,16 @@ jobs:
       contract: ${{ steps.filter.outputs.contract }}
       js: ${{ steps.filter.outputs.js }}
       stack: ${{ steps.filter.outputs.stack }}
+      # The targets whose image inputs differ from production, as matrix entries for publish and deploy.
+      release: ${{ steps.release.outputs.targets || '[]' }}
     steps:
+      # On pushes, release planning diffs against the SHA production runs, which needs history.
+      - if: github.event_name == 'push'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
       - id: filter
-        if: github.event_name == 'pull_request'
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         with:
           filters: |
@@ -67,6 +75,13 @@ jobs:
               - ci-stack/**
               - compose.ci.yaml
               - scripts/ci-stack
+      - id: release
+        if: github.event_name == 'push'
+        env:
+          RELEASE_ALL: ${{ steps.filter.outputs.workflow }}
+        run: |
+          targets="$(scripts/release plan)"
+          echo "targets=$targets" >> "$GITHUB_OUTPUT"
 
   rust:
     needs: changes
@@ -283,30 +298,20 @@ jobs:
             and all(.[]; .result == "success" or .result == "skipped")
           ' <<<"$RESULTS"
 
-  # Phase 3a (M1b): images for Coolify to pull; the webhook deploy, health wait and rollback come in phase 3b.
+  # Only the targets whose image inputs changed (M1b phase 3b gate); the e2e check runs before any push.
   publish:
-    needs: checks-passed
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [changes, checks-passed]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.release != '[]'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read
       packages: write
     strategy:
-      # Each target publishes on its own, so one failure never stops the others mid-retag.
+      # Each target publishes on its own, so one failure never stops the others mid-build.
       fail-fast: false
       matrix:
-        include:
-          - target: api
-            dockerfile: docker/api.Dockerfile
-            # Explicitly empty: the production image never carries the e2e test login (ADR 0002 point 3).
-            build-arg: FEATURES=
-          - target: homepage
-            dockerfile: docker/astro.Dockerfile
-            build-arg: APP=homepage
-          - target: canary
-            dockerfile: docker/astro.Dockerfile
-            build-arg: APP=canary
+        include: ${{ fromJSON(needs.changes.outputs.release) }}
     concurrency:
       group: publish-${{ matrix.target }}
       cancel-in-progress: false
@@ -348,8 +353,7 @@ jobs:
             exit 1
           fi
       # Same inputs and cache as the checked build, so every layer is a cache hit.
-      - id: push
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: ${{ matrix.dockerfile }}
@@ -360,7 +364,73 @@ jobs:
           tags: ${{ env.IMAGE }}:${{ github.sha }}
           push: true
           cache-from: type=gha,scope=${{ matrix.target }}
-      - name: Point :prod at the pushed digest
+
+  # Pipeline steps 2–5 of ci-deploy.md; smoke checks join the rollback trigger in phase 4.
+  deploy:
+    needs: [changes, publish]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.release != '[]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: production
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.changes.outputs.release) }}
+    concurrency:
+      group: deploy-${{ matrix.target }}
+      cancel-in-progress: false
+    env:
+      IMAGE: ghcr.io/vikingthedev/vikingthedev-platform/${{ matrix.target }}
+      HEALTH_URL: ${{ matrix.health-url }}
+      PURGE_HOST: ${{ matrix.purge-host }}
+      CLOUDFLARE_ZONE_ID: ${{ vars.CLOUDFLARE_ZONE_ID }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Record what production runs now
+        id: previous
+        run: scripts/release record >> "$GITHUB_OUTPUT"
+      - name: Point :prod at this build
+        id: retag
+        run: docker buildx imagetools create --tag "$IMAGE:prod" "$IMAGE:$GITHUB_SHA"
+      # Secrets go only to the steps that use them, never to the job or a third-party action.
+      - id: redeploy
         env:
-          DIGEST: ${{ steps.push.outputs.digest }}
-        run: docker buildx imagetools create --tag "$IMAGE:prod" "$IMAGE@$DIGEST"
+          WEBHOOK: ${{ secrets[matrix.webhook] }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+        run: scripts/release redeploy
+      - id: wait
+        run: scripts/release wait-for "$GITHUB_SHA"
+      - if: matrix.purge-host != ''
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: scripts/release purge
+      # Only a failed redeploy or health wait rolls back (ci-deploy.md); a failed purge leaves a healthy release alone.
+      - name: Roll back to the recorded digest
+        if: >-
+          (failure() || cancelled())
+          && steps.retag.outcome == 'success'
+          && (steps.redeploy.outcome != 'success' || steps.wait.outcome != 'success')
+          && steps.previous.outputs.digest != ''
+        env:
+          PREVIOUS_DIGEST: ${{ steps.previous.outputs.digest }}
+          PREVIOUS_SHA: ${{ steps.previous.outputs.sha }}
+          WEBHOOK: ${{ secrets[matrix.webhook] }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          docker buildx imagetools create --tag "$IMAGE:prod" "$IMAGE@$PREVIOUS_DIGEST"
+          scripts/release redeploy
+          waited=0
+          if [[ -n "$PREVIOUS_SHA" ]]; then scripts/release wait-for "$PREVIOUS_SHA" || waited=$?; fi
+          if [[ -n "$PURGE_HOST" ]]; then scripts/release purge; fi
+          exit "$waited"
