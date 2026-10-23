@@ -14,10 +14,11 @@ Create everything in one project (`vikingthedev`), environment `production`, on 
 
 - **Memory:** set both *Maximum Memory Limit* and *Memory Swap Limit* to the limit from [`capacity.md`](capacity.md), so a container never swaps past it.
 - **Ports:** never fill in *Ports Mappings* or make a database *publicly available*. A published port bypasses `ufw` (D20). Traefik reaches the apps through *Ports Exposes* alone.
+- **Proxy:** in the server's *Proxy → Configuration*, remove the `8080:8080` port mapping. Traefik's `:8080` entrypoint isn't used (D20).
 - **Environment variables:** runtime only. Leave *Build Variable* unticked. Lock the **secret** ones so the UI hides them.
 - **Deploys:** *Auto Deploy* off. Only the Deploy Webhook, called from Actions, deploys.
 - **Health check:** leave Coolify's health check off. The distroless images have no `curl` or shell for it, and CI's health wait replaces it.
-- **Hardening, app resources only** (API, homepage, canary): in *Custom Docker Options*, add `--read-only --cap-drop=ALL --security-opt=no-new-privileges`. If Coolify drops `--read-only`, note it in `plan.md`; the images already run as `nonroot` and were tested read-only (step 4). The database images start as root and drop privileges themselves, so they get `--security-opt=no-new-privileges` only.
+- **Hardening, app resources only** (API, homepage, canary): in *Custom Docker Options*, add `--cap-drop=ALL`. Coolify 4.4.6 silently drops `--read-only`, so the apps run with a writable root filesystem (accepted, M1b phase 2). Coolify 4.4.6 rejects `--security-opt=no-new-privileges` here (`invalid security-opt: "\"no"`), so it's left out; `plan.md` (M1b phase 2) tracks its replacement. The database images start as root and drop privileges themselves, so they get no custom options.
 
 ### PostgreSQL
 
@@ -57,7 +58,7 @@ Environment:
 
 | Variable | Value |
 |---|---|
-| `DATABASE_URL` | PostgreSQL's internal URL (**secret**). The server-side `statement_timeout` from the step 6a review waits until migrations run without it: a URL-wide cap would also cut off a long migration and the migration-lock wait |
+| `DATABASE_URL` | PostgreSQL's internal URL plus `?options=-c%20statement_timeout%3D2s` (**secret**; use `&` if the URL already has a `?`). The 2 s server-side cap backs up the API's 500 ms client timeout (step 6a review). Migrations lift it on their own connection, so add it only once an API from M1b phase 3b or later is deployed |
 | `VALKEY_URL` | Valkey's internal URL (**secret**) |
 | `COOKIE_DOMAIN` | `vikingthe.dev` |
 | `ALLOWED_ORIGINS` | `https://vikingthe.dev,https://canary.vikingthe.dev` |
@@ -77,7 +78,7 @@ Both get the same environment:
 
 | Variable | Value |
 |---|---|
-| `API_INTERNAL_URL` | `http://<api-container-name>:8081`, the API's name on the `coolify` network, known after its first deploy. Step 11 confirms it resolves; the fallback is a shared Docker network with an `api` alias (ADR 0001) |
+| `API_INTERNAL_URL` | `http://<api-uuid>:8081`. The container name changes with every deploy (`<uuid>-<timestamp>`), but Coolify names the compose service after the resource's UUID, and Compose makes that a stable DNS alias on the `coolify` network (step 11) |
 | `PLATFORM_URL` | `https://vikingthe.dev` |
 
 ### Deploy token and webhooks

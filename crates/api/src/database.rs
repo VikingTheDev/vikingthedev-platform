@@ -16,7 +16,7 @@ pub type DatabasePool = Pool<AsyncPgConnection>;
 
 const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
 // Any fixed key works, as long as every API process uses the same one.
-const MIGRATION_LOCK_KEY: i64 = 0x7669_6b69_6e67;
+pub const MIGRATION_LOCK_KEY: i64 = 0x7669_6b69_6e67;
 const MAX_CONNECTIONS: usize = 16;
 // deadpool has no default timeouts, so a stalled database would otherwise hang requests forever.
 const QUERY_TIMEOUT: Duration = Duration::from_millis(500);
@@ -60,6 +60,8 @@ pub async fn run_migrations(database_url: &str) -> anyhow::Result<()> {
     let database_url = database_url.to_owned();
     tokio::task::spawn_blocking(move || {
         let mut connection = AsyncConnectionWrapper::<AsyncPgConnection>::establish(&database_url)?;
+        // Production's URL caps statements for requests; a lock wait or a long migration must outlast that cap.
+        sql_query("SET statement_timeout = 0").execute(&mut connection)?;
         sql_query("SELECT pg_advisory_lock($1)")
             .bind::<BigInt, _>(MIGRATION_LOCK_KEY)
             .execute(&mut connection)?;

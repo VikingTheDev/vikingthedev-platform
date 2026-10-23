@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+# The release stages of CI on pushes to main (ci-deploy.md pipeline). Reads its settings from the environment.
+# Usage: scripts/release plan | record | redeploy | wait-for <sha> | purge
+set -euo pipefail
+
+readonly HEALTH_TIMEOUT_SECONDS=300
+readonly POLL_SECONDS=5
+readonly SHA_PATTERN='^[0-9a-f]{40}$'
+readonly DIGEST_PATTERN='^sha256:[0-9a-f]{64}$'
+
+# What goes into each image; never crates/ in an app (ci-deploy.md).
+readonly TARGETS='[
+  {"target": "api", "dockerfile": "docker/api.Dockerfile", "build-arg": "FEATURES=",
+   "health-url": "https://vikingthe.dev/api/health", "purge-host": "", "webhook": "COOLIFY_WEBHOOK_API",
+   "paths": ["crates", "Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "docker/api.Dockerfile", ".dockerignore"]},
+  {"target": "homepage", "dockerfile": "docker/astro.Dockerfile", "build-arg": "APP=homepage",
+   "health-url": "https://vikingthe.dev/health", "purge-host": "vikingthe.dev", "webhook": "COOLIFY_WEBHOOK_HOMEPAGE",
+   "paths": ["apps/homepage", "packages", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "docker/astro.Dockerfile", ".dockerignore"]},
+  {"target": "canary", "dockerfile": "docker/astro.Dockerfile", "build-arg": "APP=canary",
+   "health-url": "https://canary.vikingthe.dev/health", "purge-host": "canary.vikingthe.dev", "webhook": "COOLIFY_WEBHOOK_CANARY",
+   "paths": ["apps/canary", "packages", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "docker/astro.Dockerfile", ".dockerignore"]}
+]'
+
+# The SHA a health endpoint reports, or nothing if it's down or answers anything but a SHA.
+production_sha() {
+  local reported
+  reported="$(curl --fail --silent --max-time 10 "$1" | jq --raw-output .sha || true)"
+  if [[ "$reported" =~ $SHA_PATTERN ]]; then
+    echo "$reported"
+  fi
+}
+
+# Compares against what production runs, not the previous push, so a cancelled or failed run never strands a change.
+needs_release() {
+  local target="$1" running status=0
+  local paths=()
+  [[ "${RELEASE_ALL:-false}" == "true" ]] && return 0
+  running="$(production_sha "$(jq --raw-output '."health-url"' <<<"$target")")"
+  [[ -n "$running" ]] || return 0
+  git merge-base --is-ancestor "$running" HEAD 2>/dev/null || return 0
+  mapfile -t paths < <(jq --raw-output '.paths[]' <<<"$target")
+  git diff --quiet "$running" HEAD -- "${paths[@]}" || status=$?
+  # git diff --quiet exits 1 for differences; anything else is an error, so release to be safe.
+  ((status != 0))
+}
+
+# Prints the matrix entries of the targets to release; needs a full clone and RELEASE_ALL.
+plan() {
+  local target selected=()
+  while IFS= read -r target; do
+    if needs_release "$target"; then
+      selected+=("$(jq --compact-output 'del(.paths)' <<<"$target")")
+    fi
+  done < <(jq --compact-output '.[]' <<<"$TARGETS")
+  printf '%s\n' "${selected[@]}" | jq --compact-output --slurp .
+}
+
+# Prints digest= and sha= lines for GITHUB_OUTPUT: the rollback point. Needs IMAGE and HEALTH_URL.
+record() {
+  local manifest errors digest=""
+  errors="$(mktemp)"
+  if manifest="$(docker buildx imagetools inspect "$IMAGE:prod" --format '{{json .Manifest}}' 2>"$errors")"; then
+    digest="$(jq --raw-output .digest <<<"$manifest")"
+    if [[ ! "$digest" =~ $DIGEST_PATTERN ]]; then
+      echo "::error::$IMAGE:prod has no readable digest" >&2
+      return 1
+    fi
+  elif grep --quiet --ignore-case 'not found' "$errors"; then
+    echo "::warning::$IMAGE:prod does not exist yet; deploying without a rollback point" >&2
+  else
+    cat "$errors" >&2
+    echo "::error::could not read $IMAGE:prod, so there would be no rollback point" >&2
+    return 1
+  fi
+  echo "digest=$digest"
+  echo "sha=$(production_sha "$HEALTH_URL")"
+}
+
+# Coolify pulls :prod again; needs WEBHOOK and COOLIFY_TOKEN.
+redeploy() {
+  curl --fail --silent --show-error --output /dev/null \
+    --header "Authorization: Bearer $COOLIFY_TOKEN" "$WEBHOOK"
+}
+
+# Needs HEALTH_URL; /health is never cached at the edge (edge-config.md).
+wait_for() {
+  local expected="$1" reported=""
+  local deadline=$((SECONDS + HEALTH_TIMEOUT_SECONDS))
+  while ((SECONDS < deadline)); do
+    reported="$(production_sha "$HEALTH_URL")"
+    if [[ "$reported" == "$expected" ]]; then
+      echo "$HEALTH_URL reports $expected"
+      return
+    fi
+    sleep "$POLL_SECONDS"
+  done
+  echo "::error::$HEALTH_URL did not report $expected within ${HEALTH_TIMEOUT_SECONDS}s (last: ${reported:-nothing})"
+  return 1
+}
+
+# Needs PURGE_HOST, CLOUDFLARE_ZONE_ID and CLOUDFLARE_API_TOKEN.
+purge() {
+  jq --null-input --compact-output --arg host "$PURGE_HOST" '{hosts: [$host]}' |
+    curl --fail --silent --show-error \
+      --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+      --header "Content-Type: application/json" \
+      --data @- \
+      "https://api.cloudflare.com/client/v4/zones/$CLOUDFLARE_ZONE_ID/purge_cache" |
+    jq --exit-status .success >/dev/null
+  echo "Purged $PURGE_HOST"
+}
+
+case "${1:-}" in
+  plan) plan ;;
+  record) record ;;
+  redeploy) redeploy ;;
+  wait-for) wait_for "$2" ;;
+  purge) purge ;;
+  *)
+    echo "usage: scripts/release plan | record | redeploy | wait-for <sha> | purge" >&2
+    exit 2
+    ;;
+esac
