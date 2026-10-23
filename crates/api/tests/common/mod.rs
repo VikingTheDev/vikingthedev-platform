@@ -12,11 +12,12 @@ use api::{
     sessions::{SessionStore, SessionToken, cookie::CookieDomain},
     users::{self, DisplayName, User},
 };
-use axum::http::HeaderValue;
+use axum::http::{HeaderName, HeaderValue};
 use time::OffsetDateTime;
 
 pub const DEFAULT_DATABASE_URL: &str = "postgres://vikingthedev@127.0.0.1:5432/vikingthedev";
 pub const DEFAULT_VALKEY_URL: &str = "redis://127.0.0.1:6379";
+pub const CLIENT_IP_HEADER: &str = "cf-connecting-ip";
 
 pub fn database_url() -> String {
     std::env::var("DATABASE_URL").unwrap_or_else(|_| DEFAULT_DATABASE_URL.to_owned())
@@ -33,6 +34,7 @@ pub fn test_state() -> Result<AppState, Box<dyn std::error::Error>> {
         valkey_url: valkey_url(),
         cookie_domain: CookieDomain::try_from("vikingthe.test".to_owned())?,
         allowed_origins: vec![HeaderValue::from_static("https://vikingthe.test")],
+        client_ip_header: HeaderName::from_static(CLIENT_IP_HEADER),
     };
     Ok(AppState {
         database: database::connect(&config.database_url)?,

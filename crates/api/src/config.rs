@@ -1,11 +1,13 @@
 use std::env;
 
 use anyhow::{Context, bail};
-use axum::http::HeaderValue;
+use axum::http::{HeaderName, HeaderValue};
 
 use crate::sessions::cookie::CookieDomain;
 
 const HTTPS_SCHEME: &str = "https://";
+// Clients set these themselves, and Cloudflare keeps what they send (security-code.md).
+const UNTRUSTED_IP_HEADERS: [&str; 2] = ["x-forwarded-for", "forwarded"];
 
 /// Runtime configuration (ADR 0002 point 4). Not `Debug`: the URLs can hold passwords.
 pub struct Config {
@@ -15,6 +17,8 @@ pub struct Config {
     pub cookie_domain: CookieDomain,
     /// Exact `Origin` values accepted for writes when `Sec-Fetch-Site` is absent.
     pub allowed_origins: Vec<HeaderValue>,
+    /// The header the edge sets to the caller's IP: `CF-Connecting-IP` in production (ADR 0003 point 3).
+    pub client_ip_header: HeaderName,
 }
 
 impl Config {
@@ -26,12 +30,22 @@ impl Config {
             valkey_url: required("VALKEY_URL")?,
             cookie_domain: CookieDomain::try_from(required("COOKIE_DOMAIN")?)?,
             allowed_origins: parse_origins(&required("ALLOWED_ORIGINS")?)?,
+            client_ip_header: parse_client_ip_header(required("CLIENT_IP_HEADER")?)?,
         })
     }
 }
 
 fn required(name: &str) -> anyhow::Result<String> {
     env::var(name).with_context(|| format!("{name} must be set"))
+}
+
+fn parse_client_ip_header(name: String) -> anyhow::Result<HeaderName> {
+    let header =
+        HeaderName::try_from(name).context("CLIENT_IP_HEADER must be a valid header name")?;
+    if UNTRUSTED_IP_HEADERS.contains(&header.as_str()) {
+        bail!("CLIENT_IP_HEADER must be a header the edge overwrites, not {header}");
+    }
+    Ok(header)
 }
 
 fn parse_origins(list: &str) -> anyhow::Result<Vec<HeaderValue>> {
@@ -60,6 +74,18 @@ mod tests {
         let origins = parse_origins("https://vikingthe.dev, https://canary.vikingthe.dev")?;
         assert_eq!(origins.len(), 2);
         assert_eq!(origins[1], "https://canary.vikingthe.dev");
+        Ok(())
+    }
+
+    #[test]
+    fn client_ip_header_rejects_headers_clients_control() -> anyhow::Result<()> {
+        assert_eq!(
+            parse_client_ip_header("CF-Connecting-IP".to_owned())?,
+            "cf-connecting-ip"
+        );
+        for name in ["X-Forwarded-For", "forwarded", "CF Connecting IP"] {
+            assert!(parse_client_ip_header(name.to_owned()).is_err(), "{name}");
+        }
         Ok(())
     }
 

@@ -42,6 +42,8 @@ services:
       VALKEY_URL: redis://valkey:6379
       COOKIE_DOMAIN: vikingthe.test
       ALLOWED_ORIGINS: https://vikingthe.test,https://canary.vikingthe.test
+      # The stack has no Cloudflare; Traefik overwrites X-Real-Ip with the peer address (ADR 0003 point 3).
+      CLIENT_IP_HEADER: X-Real-Ip
     depends_on:
       postgres:
         condition: service_healthy
