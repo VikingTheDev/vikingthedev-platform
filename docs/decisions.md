@@ -234,7 +234,7 @@ Accounts are wanted, but gated apps such as Stash must not be open to the whole 
 
 **Resolved (the maintainer, 2026-10-18):** accept OVH's edge firewall as the only layer in front of Docker-published ports. External probes on IPv4 found 22, 80, 443, 6001, 6002, 8000, 8080 and 52843 (sshd) closed or filtered. The VPS has no public IPv6, only a private `fda6:…` address.
 
-**Why it's a single layer:** Docker publishes 80, 443, 8080 (Traefik), 8000 (Coolify), 6001 and 6002 on every interface, and those ports bypass `ufw`. sshd (socket-activated on port 52843) also listens on every interface. If the edge firewall were ever turned off:
+**Why it's a single layer:** Docker publishes 80, 443, 8080 (Traefik; removed 2026-10-23), 8000 (Coolify), 6001 and 6002 on every interface, and those ports bypass `ufw`. sshd (socket-activated on port 52843) also listens on every interface. If the edge firewall were ever turned off:
 
 - 80 and 443 would let clients bypass Cloudflare and forge `CF-Connecting-IP`, which defeats the per-IP rate limits (ADR 0003 point 3);
 - Coolify on `:8000` would be reachable without going through Cloudflare Access;
@@ -243,7 +243,7 @@ Accounts are wanted, but gated apps such as Stash must not be open to the whole 
 **Future improvements (not scheduled):**
 
 - A systemd unit that adds a `DOCKER-USER` rule dropping new inbound connections from the public interface.
-- Stop publishing Traefik's `:8080` dashboard, or bind it to `127.0.0.1`.
+- ~~Stop publishing Traefik's `:8080` dashboard, or bind it to `127.0.0.1`.~~ Done 2026-10-23: the maintainer removed the `8080:8080` mapping.
 - Bind sshd's socket to `127.0.0.1:52843`, since only the tunnel uses it. OVH's KVM console stays as the fallback.
 - Bind Coolify's `8000`, `6001` and `6002` to `127.0.0.1`, if Coolify supports a lasting override.
 - Remove passwordless sudo from `ubuntu`.

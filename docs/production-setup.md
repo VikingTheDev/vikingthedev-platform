@@ -14,10 +14,11 @@ Create everything in one project (`vikingthedev`), environment `production`, on 
 
 - **Memory:** set both *Maximum Memory Limit* and *Memory Swap Limit* to the limit from [`capacity.md`](capacity.md), so a container never swaps past it.
 - **Ports:** never fill in *Ports Mappings* or make a database *publicly available*. A published port bypasses `ufw` (D20). Traefik reaches the apps through *Ports Exposes* alone.
+- **Proxy:** in the server's *Proxy → Configuration*, remove the `8080:8080` port mapping. Traefik's `:8080` entrypoint isn't used (D20).
 - **Environment variables:** runtime only. Leave *Build Variable* unticked. Lock the **secret** ones so the UI hides them.
 - **Deploys:** *Auto Deploy* off. Only the Deploy Webhook, called from Actions, deploys.
 - **Health check:** leave Coolify's health check off. The distroless images have no `curl` or shell for it, and CI's health wait replaces it.
-- **Hardening, app resources only** (API, homepage, canary): in *Custom Docker Options*, add `--read-only --cap-drop=ALL`. Coolify 4.4.6 rejects `--security-opt=no-new-privileges` here (`invalid security-opt: "\"no"`), so it's left out; `plan.md` (M1b phase 2) tracks its replacement. The database images start as root and drop privileges themselves, so they get no custom options.
+- **Hardening, app resources only** (API, homepage, canary): in *Custom Docker Options*, add `--cap-drop=ALL`. Coolify 4.4.6 silently drops `--read-only`, so the apps run with a writable root filesystem (accepted, M1b phase 2). Coolify 4.4.6 rejects `--security-opt=no-new-privileges` here (`invalid security-opt: "\"no"`), so it's left out; `plan.md` (M1b phase 2) tracks its replacement. The database images start as root and drop privileges themselves, so they get no custom options.
 
 ### PostgreSQL
 
