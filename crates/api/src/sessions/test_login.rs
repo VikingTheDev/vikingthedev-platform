@@ -27,6 +27,7 @@ struct TestLoginRequest {
 
 /// Compiled only into `e2e` builds for the CI stack (ADR 0002 point 3).
 pub fn routes() -> Router<AppState> {
+    // CI's publish job greps the API binary for this exact path to keep e2e builds out of GHCR.
     Router::new().route("/test/login", post(test_login))
 }
 

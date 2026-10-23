@@ -2,7 +2,9 @@
 
 The maintainer's console work for M1b phase 2 (M1b gate). Cloudflare is in [`edge-config.md`](edge-config.md). Claude never sees the values marked **secret**: type them into the console yourself, and never paste them into a session.
 
-Image names are a default from M1b phase 1: `ghcr.io/vikingthedev/vikingthedev-platform/<target>`, where `<target>` is `api`, `homepage` or `canary`. The deploy jobs push `:<sha>` and `:prod` there in phase 3. The packages are public (M1b gate), so Coolify pulls them without a registry credential.
+Image names are a default from M1b phase 1: `ghcr.io/vikingthedev/vikingthedev-platform/<target>`, where `<target>` is `api`, `homepage` or `canary`. CI's `publish` job pushes `:<sha>` and `:prod` there on every push to `main` (M1b phase 3a).
+
+**Order:** PostgreSQL, Valkey and Cloudflare need no images, so they come first. The app resources wait until `publish` has run once. Then, under each package's *Package settings*, set the visibility to **Public** (M1b gate), so Coolify pulls without a registry credential. GHCR creates packages as private.
 
 ## Coolify
 
@@ -49,7 +51,7 @@ Use Coolify's Valkey type if this version has one; otherwise create a **Redis** 
 | Strip Prefixes (Advanced) | **off**: the API's routes start with `/api` |
 | Memory | 512 MiB |
 
-`<scheme>` matches the catch-all tunnel's service: `http` if cloudflared sends plain HTTP to Traefik, `https` if it sends HTTPS. Step 14 confirms there's no redirect loop (ADR 0003).
+`<scheme>` is `http`: the apps tunnel (`cloudflared@apps`) sends every host to `http://localhost:80`, Traefik's `http` entrypoint (step 14, 2026-10-23). Step 14 still confirms there's no redirect loop once the apps are deployed (ADR 0003).
 
 Environment:
 
@@ -75,7 +77,7 @@ Both get the same environment:
 
 | Variable | Value |
 |---|---|
-| `API_INTERNAL_URL` | `http://<api-container-name>:8081`, the API's name on the `coolify` network. Step 11 confirms it resolves; the fallback is a shared Docker network with an `api` alias (ADR 0001) |
+| `API_INTERNAL_URL` | `http://<api-container-name>:8081`, the API's name on the `coolify` network, known after its first deploy. Step 11 confirms it resolves; the fallback is a shared Docker network with an `api` alias (ADR 0001) |
 | `PLATFORM_URL` | `https://vikingthe.dev` |
 
 ### Deploy token and webhooks
