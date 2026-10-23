@@ -76,9 +76,9 @@ record() {
   echo "sha=$(production_sha "$HEALTH_URL")"
 }
 
-# Coolify pulls :prod again; needs WEBHOOK and COOLIFY_TOKEN.
+# Coolify pulls :prod again; needs WEBHOOK and COOLIFY_TOKEN. Coolify 4.4.6 answers GET /deploy with 405.
 redeploy() {
-  curl --fail --silent --show-error --output /dev/null \
+  curl --fail --silent --show-error --output /dev/null --request POST --data '' \
     --header "Authorization: Bearer $COOLIFY_TOKEN" "$WEBHOOK"
 }
 
