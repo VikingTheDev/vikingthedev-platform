@@ -159,7 +159,7 @@ The repo is one monorepo, with pnpm and Cargo workspaces. There is no Turborepo 
 - **Rendering:** content pages are prerendered and cached at the edge. Only logged-in pages render on demand.
 - **Deploys:** CI builds the images and Coolify pulls them. Coolify never builds, and Auto Deploy is off.
 - **Staging:** none for now; a full stack in CI replaces it (ADR 0002). If one is added, it lives on a separate registrable domain, never under `vikingthe.dev`.
-- **Known risks:** ADR 0001 lists them, each with a fallback, and the scoped rules repeat the relevant ones. If you hit one, use its fallback and record the outcome in a new ADR.
+- **Known risks:** ADR 0001 lists them, each with a fallback, and ADR 0009 records their outcomes, including two changed fallbacks. The scoped rules repeat the relevant ones. If you hit a new one, record its outcome in a new ADR.
 
 **New app:** add `apps/<name>/`, a CI path filter for it, a Coolify Docker Image resource for it, and an `/api` path domain for its host on the Rust resource.
 

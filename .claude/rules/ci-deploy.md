@@ -34,7 +34,7 @@ paths:
 - Runtime images have no package manager and no shell.
 - No secrets in `ARG`s, `ENV` or any layer.
 - **Rust images:** `cargo-chef` with the BuildKit cache, on a distroless `cc` base.
-- **Astro images:** one shared `docker/astro.Dockerfile` with `--build-arg APP=<app>`, built with `pnpm deploy --filter <app> --prod`. On pnpm 12.14 this works without `inject-workspace-packages=true` (step 4, 2026-10-19), but no app depended on a workspace package yet, so recheck when one first does.
+- **Astro images:** one shared `docker/astro.Dockerfile` with `--build-arg APP=<app>`, built with `pnpm deploy --filter <app> --prod`. On pnpm 12.14 this works without `inject-workspace-packages=true` (step 4, 2026-10-19; ADR 0009): the apps take workspace packages only as `devDependencies`, bundled at build time. Recheck if an app ever takes one as a runtime dependency.
 - **Base images** are pinned by tag and digest.
 
 ## Build and deploy
@@ -66,9 +66,9 @@ paths:
   Never add `crates/**` to an app filter. A real contract change reaches the apps through `packages/api-types`.
 - **Typecheck scope:** pull requests check only the affected packages, using `fetch-depth: 0` and `origin/<base_ref>`. Pushes to `main` check everything.
 - **Staging:** none for now (ADR 0002). If one is added, it lives on its own registrable domain, laid out like production.
-- **Coolify risks resolved** (ADR 0001; outcomes in `docs/plan.md`, ADR 0009 pending):
+- **Coolify risks resolved** (ADR 0001; outcomes in ADR 0009):
   - Routing `/api` and `/` on one host to different resources works (step 10, 2026-10-23), so there's no `api.` subdomain or CORS.
-  - A Docker Image resource reaches the API's internal `:8081` through a Coolify *Network Alias* (`vikingthedev-api`), not its UUID, which never resolves (step 11, 2026-10-23; the 50 ms budget waits for step 18).
+  - A Docker Image resource reaches the API's internal `:8081` through a Coolify *Network Alias* (`vikingthedev-api`), not its UUID, which never resolves (step 11, 2026-10-23; ADR 0009).
 
 ## Repo settings (applied by the human)
 
