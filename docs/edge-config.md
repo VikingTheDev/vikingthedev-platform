@@ -29,7 +29,7 @@ This rule is an allow-list of prerendered paths, never a whole host. It ignores 
 
 Why each part:
 
-- `/api/` and `/_server-islands/`: `frontend.md`. The server-island headers from Astro are unverified (step 12).
+- `/api/` and `/_server-islands/`: `frontend.md`. Astro sends `cache-control: private, no-store` on server islands (step 12, 2026-10-24), and this rule keeps them out of the cache regardless.
 - `/health`: the deploy wait must never read a cached SHA (step 4 review).
 
 ## Response header rules
