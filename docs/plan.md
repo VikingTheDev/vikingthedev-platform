@@ -96,7 +96,7 @@ Every milestone ends with external checks. The checks used throughout are:
 | **Playwright (CI stack)** | The ephemeral full stack in CI (ADR 0002): Traefik + API + apps + Valkey + PostgreSQL + Mailpit, on `*.vikingthe.test` with a throwaway TLS cert |
 | **Playwright (prod smoke)** | Production after each deploy: only checks that need no login |
 | **Lighthouse CI + size-limit** | Lighthouse against the CI stack (LCP, CLS, TBT, JS bytes) and against production (TTFB through the Cloudflare cache). `size-limit` in each app's CI job |
-| **oha** | From the maintainer's machine against production `/api`, and from inside the VPS against `:8081` |
+| **oha** | Gated from inside the VPS: `:8081/session`, and the read endpoints from M2 on. An ungated baseline from the maintainer's machine against production `/api` (ADR 0009) |
 | **Observatory** | Mozilla HTTP Observatory against each production host |
 | **ASVS L2** | `docs/security/asvs-l2.md`, a checklist of the chapters each milestone touches, with links to the evidence |
 | **axe** | `@axe-core/playwright` inside the Playwright suites, failing on any serious or critical violation |
