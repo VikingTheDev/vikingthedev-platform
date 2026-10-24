@@ -18,7 +18,7 @@ Create everything in one project (`vikingthedev`), environment `production`, on 
 - **Environment variables:** runtime only. Leave *Build Variable* unticked. Lock the **secret** ones so the UI hides them.
 - **Deploys:** *Auto Deploy* off. Only the Deploy Webhook, called from Actions, deploys.
 - **Health check:** leave Coolify's health check off. The distroless images have no `curl` or shell for it, and CI's health wait replaces it.
-- **Hardening, app resources only** (API, homepage, canary): in *Custom Docker Options*, add `--cap-drop=ALL`. Coolify 4.4.6 silently drops `--read-only`, so the apps run with a writable root filesystem (accepted, M1b phase 2). Coolify 4.4.6 rejects `--security-opt=no-new-privileges` here (`invalid security-opt: "\"no"`), so it's left out; `plan.md` (M1b phase 2) tracks its replacement. The database images start as root and drop privileges themselves, so they get no custom options.
+- **Hardening, app resources only** (API, homepage, canary): in *Custom Docker Options*, add `--cap-drop=ALL`. Coolify 4.4.6 silently drops `--read-only`, so the apps run with a writable root filesystem (accepted, M1b phase 2). Coolify 4.4.6 rejects `--security-opt=no-new-privileges` here (`invalid security-opt: "\"no"`), so it's left out; ADR 0009 defers Docker's daemon-wide setting as voluntary hardening. The database images start as root and drop privileges themselves, so they get no custom options.
 
 ### PostgreSQL
 

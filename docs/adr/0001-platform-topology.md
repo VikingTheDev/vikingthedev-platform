@@ -1,6 +1,6 @@
 # ADR 0001: Platform topology for the vikingthe.dev suite
 
-- **Status:** Accepted. Partly superseded by ADR 0002 (2026-10-19): the staging CI gate and `oha` target in §3, the `:staging` tag, "Staging" and pipeline steps 3–5 in §5, and the staging parts of "CI guardrails". Ingress refined by ADR 0003.
+- **Status:** Accepted. Partly superseded by ADR 0002 (2026-10-19): the staging CI gate and `oha` target in §3, the `:staging` tag, "Staging" and pipeline steps 3–5 in §5, and the staging parts of "CI guardrails". Ingress refined by ADR 0003. Known risks answered, and partly superseded, by ADR 0009 (2026-10-24): the `:8081` and session-store fallbacks, and where §3's backend budgets are measured.
 - **Date:** 2026-10-18
 - **Decider:** Solo maintainer
 
