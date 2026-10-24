@@ -215,14 +215,14 @@ The external run can't meet a 50 ms p99: its fastest request took 62 ms, against
 **M1c: records**
 
 20. Record every Known risk outcome in a new ADR → verify: ADR 0009 exists and lists each risk as confirmed, or as falling back with the fallback applied. For the session store it records that the fallback changed from `fred` to `redis`, because `fred` has had no release since 2025-02-27. For step 11 it records the Coolify Network Alias that replaced ADR 0001's shared-network fallback. It also records step 18's budget change: the external `/api/health` p99 became an ungated baseline, and the budgets apply inside the VPS network (maintainer, 2026-10-24). **Step 20 done (2026-10-24):** `docs/adr/0009-known-risk-outcomes.md`. It also covers step 14's tunnel risks and Coolify 4.4.6's behavior, and defers `no-new-privileges` as voluntary hardening (maintainer, 2026-10-24). **Open:** production's `DATABASE_URL` lacks the `statement_timeout` option (found 2026-10-24); the maintainer adds it and redeploys the API.
-21. ASVS L2 → verify: V14 (configuration) and the V3 parts the skeleton touches are ticked with evidence.
+21. ASVS L2, version 5.0.0 (maintainer, 2026-10-24) → verify: `docs/security/asvs-l2.md` ticks V13 (configuration), and the parts of V3 (cookies, headers, CSRF) and V7 (sessions) the skeleton touches, with evidence; each gap has a recorded decision.
 
 ### M2: Data and backups
 
 1. The diesel-async spike from ADR 0005 (PostgreSQL itself arrives in M1): a primary-key read, a cursor-paginated filtered list and a two-table transaction → verify: the read p99 is at most 50 ms under `oha` (server-side timing), and errors map cleanly to `AppError`. A failure means a new ADR, not a silent switch.
 2. Add a nightly `pg_dump` to a local volume, and turn on RDB snapshots in Valkey alongside AOF (D5) → verify: a dump file under 24 hours old exists, and Valkey's `INFO persistence` shows both on.
 3. oha nightly against a read endpoint → verify: p50 ≤ 10 ms and p99 ≤ 50 ms server-side (from the API's `tracing` timings).
-4. ASVS L2 → verify: V8 (data protection) for the data at rest is ticked.
+4. ASVS L2 → verify: V14 (data protection) for the data at rest is ticked.
 
 The maintainer waived a backup restore drill on 2026-10-18 (D5).
 
@@ -237,7 +237,7 @@ The maintainer waived a backup restore drill on 2026-10-18 (D5).
 7. `apps/admin` at `admin.vikingthe.dev`, after its spec: users, grants, disabling accounts and the audit log (D19; invites only if D18 lands on invite-only) → verify: the spec's acceptance criteria pass in Playwright; disabling a user revokes their sessions on every host; Cloudflare Access blocks anonymous requests; `/api/admin/*` called from `vikingthe.dev` with a valid admin session but no Access JWT gets 403.
 8. GDPR: the privacy policy page, `GET /api/me/export` and `DELETE /api/me` (D8) → verify: Playwright shows the export contains every personal field and that deletion removes the user's rows, OAuth links and Valkey sessions.
 9. Run `/security-review` and the `reviewer` agent → verify: no open findings.
-10. ASVS L2 → verify: V2 (authentication), V3 (sessions), V4 (access control), V5 (validation) and V7 (errors and logging) are ticked with evidence.
+10. ASVS L2 → verify: V6 (authentication), V7 (sessions), V8 (authorization), V1 and V2 (encoding and validation) and V16 (logging and errors) are ticked with evidence.
 
 ### M4: Design system
 
@@ -259,7 +259,7 @@ Spec → implementation → verify: the spec's acceptance criteria pass in Playw
 
 ### M7 and on: further apps
 
-Same exit checks as M6. The file drop adds upload checks (size and content type enforced server-side, R2 presigned URL expiry, quota) and an ASVS L2 V12 (files) review.
+Same exit checks as M6. The file drop adds upload checks (size and content type enforced server-side, R2 presigned URL expiry, quota) and an ASVS L2 V5 (file handling) review.
 
 ## 5. Follow-ups once proposed ADRs are accepted
 
