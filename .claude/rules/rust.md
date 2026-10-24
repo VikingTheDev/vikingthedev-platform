@@ -114,6 +114,7 @@ __Secure-vt_sid=<base64url 256-bit random>; Domain=vikingthe.dev; Path=/; Secure
 - **Session record:** `sess:{sha256(token)}` is a hash of `{user_id, created_at, last_seen_at, last_auth_at}`, with timestamps in Unix seconds. `last_auth_at` feeds ADR 0004's recent-login check. No `ua_hash`: nothing uses it, and user agents change on every browser update (M1 gate, 2026-10-19).
   - It expires 30 days after login, matching the cookie's `Max-Age`, and is never extended (step 2 gate, 2026-10-19).
   - `last_seen_at` is written at most once an hour.
+  - It also ends after 7 days without a lookup, measured from `last_seen_at`, so up to an hour early (ASVS 7.3.1, step 21a).
 - **Per-user index:** `user_sess:{user_id}` is a set used to revoke all of a user's sessions.
 - **Hashing:** never store the raw token.
 - **Persistence:** Valkey runs with AOF on. It holds state, not a disposable cache.

@@ -6,7 +6,7 @@ use std::error::Error;
 use api::{
     sessions::{
         SessionStore,
-        store::{SESSION_LIFETIME, session_key, user_sessions_key},
+        store::{INACTIVITY_TIMEOUT, SESSION_LIFETIME, session_key, user_sessions_key},
     },
     users::UserId,
 };
@@ -97,6 +97,48 @@ async fn sessions_end_thirty_days_after_login() -> Result<(), Box<dyn Error>> {
             .is_none()
     );
     assert!(!exists(&session_key(&token.storage_id())).await?);
+    Ok(())
+}
+
+#[tokio::test]
+async fn sessions_end_after_seven_idle_days_and_are_unlisted() -> Result<(), Box<dyn Error>> {
+    let store = store()?;
+    let user = UserId::generate();
+    let start = OffsetDateTime::now_utc();
+    let idle = store.create(user, start).await?;
+    let recent = store.create(user, start + Duration::days(1)).await?;
+
+    assert!(
+        store
+            .load(&idle, start + INACTIVITY_TIMEOUT)
+            .await?
+            .is_none()
+    );
+    assert!(!exists(&session_key(&idle.storage_id())).await?);
+    let listed: Vec<String> = redis::cmd("SMEMBERS")
+        .arg(user_sessions_key(user))
+        .query_async(&mut raw_connection().await?)
+        .await?;
+    assert_eq!(listed, vec![recent.storage_id().as_str().to_owned()]);
+    Ok(())
+}
+
+#[tokio::test]
+async fn activity_keeps_a_session_alive_past_seven_days() -> Result<(), Box<dyn Error>> {
+    let store = store()?;
+    let start = OffsetDateTime::now_utc();
+    let token = store.create(UserId::generate(), start).await?;
+
+    store
+        .load(&token, start + Duration::days(6))
+        .await?
+        .ok_or("missing")?;
+    assert!(
+        store
+            .load(&token, start + Duration::days(12))
+            .await?
+            .is_some()
+    );
     Ok(())
 }
 

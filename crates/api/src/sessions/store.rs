@@ -11,6 +11,8 @@ use crate::users::UserId;
 
 /// Fixed from login and never extended, matching the cookie's `Max-Age` (step 2 gate, 2026-10-19).
 pub const SESSION_LIFETIME: Duration = Duration::days(30);
+/// ASVS 7.3.1; measured from `last_seen_at`, so a session can end up to an hour early.
+pub const INACTIVITY_TIMEOUT: Duration = Duration::days(7);
 // `last_seen_at` is written at most hourly to avoid a write per request.
 const LAST_SEEN_REFRESH_INTERVAL: Duration = Duration::hours(1);
 const VALKEY_RESPONSE_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(500);
@@ -151,7 +153,7 @@ impl SessionStore {
             return Ok(None);
         }
         let session = parse_session(&fields)?;
-        if is_expired(session.created_at, now) {
+        if is_expired(session.created_at, now) || is_idle(session.last_seen_at, now) {
             self.revoke(token).await?;
             return Ok(None);
         }
@@ -234,6 +236,10 @@ fn is_expired(created_at: OffsetDateTime, now: OffsetDateTime) -> bool {
     now - created_at >= SESSION_LIFETIME
 }
 
+fn is_idle(last_seen_at: OffsetDateTime, now: OffsetDateTime) -> bool {
+    now - last_seen_at >= INACTIVITY_TIMEOUT
+}
+
 fn needs_last_seen_update(last_seen_at: OffsetDateTime, now: OffsetDateTime) -> bool {
     now - last_seen_at >= LAST_SEEN_REFRESH_INTERVAL
 }
@@ -248,6 +254,15 @@ mod tests {
     fn sessions_expire_thirty_days_after_login() {
         assert!(!is_expired(START, START + Duration::days(29)));
         assert!(is_expired(START, START + SESSION_LIFETIME));
+    }
+
+    #[test]
+    fn sessions_end_after_seven_idle_days() {
+        assert!(!is_idle(
+            START,
+            START + INACTIVITY_TIMEOUT - Duration::minutes(1)
+        ));
+        assert!(is_idle(START, START + INACTIVITY_TIMEOUT));
     }
 
     #[test]
