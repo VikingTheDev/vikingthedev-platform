@@ -160,6 +160,6 @@ A budget regression is a failing test, not a judgment call.
 - **Hashed assets** (`/_astro/*`): `Cache-Control: public, max-age=31536000, immutable`.
 - **User-dependent responses:** `Cache-Control: private, no-store`. Never set `Set-Cookie` on a response meant to be cached.
 - **Prerendered HTML:** a Cloudflare Cache Rule with an Edge TTL, purged after each production deploy.
-- **Cloudflare bypass:** `/api/*` and `/_server-islands/*`. Keep the server-island bypass: the cache headers Astro sets on those responses are unverified.
+- **Cloudflare bypass:** `/api/*` and `/_server-islands/*`. Keep the server-island bypass even though Astro sends `private, no-store` on those responses (M1b step 12): the edge rule mustn't depend on Astro's header.
 - **R2, public objects:** served from a custom domain.
 - **R2, private objects:** short-lived presigned URLs from Rust, never cached.
