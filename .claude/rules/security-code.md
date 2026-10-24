@@ -26,7 +26,7 @@ These rules are always loaded, because they also apply to specs, proxy config an
     - no `unsafe-inline` or `unsafe-eval` for scripts;
     - inline scripts, including Astro's island hydration scripts, allowed **by hash, not nonce**, because edge-cached HTML can't carry a per-request nonce;
     - hashes come from Astro's `security.csp`, with the shared directives from `@vikingthedev/config/csp`. Prerendered pages get a `<meta>`; on-demand pages get a `Content-Security-Policy` response header, hashed per response (step 5, 2026-10-19);
-    - `frame-ancestors 'none'` is sent as an HTTP header from Traefik or Cloudflare, because browsers ignore it in a `<meta>` CSP. That rule must **add** a second CSP header, never set or replace one: replacing would drop the hashes Astro sends on on-demand pages. Browsers enforce every CSP they receive.
+    - `frame-ancestors 'none'`, `object-src 'none'` and `base-uri 'none'` are sent as an HTTP header from Traefik or Cloudflare, because browsers ignore `frame-ancestors` in a `<meta>` CSP. That rule must **add** a second CSP header, never set or replace one: replacing would drop the hashes Astro sends on on-demand pages. Browsers enforce every CSP they receive.
   - `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`
   - `X-Content-Type-Options: nosniff`
   - `Referrer-Policy: strict-origin-when-cross-origin`
