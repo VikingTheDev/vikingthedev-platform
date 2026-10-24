@@ -48,7 +48,9 @@ Why each part:
 ### `frame-ancestors`
 
 - **When:** the zone expression above, `and not http.host in {"coolify.vikingthe.dev" "beszel.vikingthe.dev" "ssh.vikingthe.dev"}`.
-- **Then:** **Add** `Content-Security-Policy: frame-ancestors 'none'`.
+- **Then:** **Add** `Content-Security-Policy: frame-ancestors 'none'; object-src 'none'; base-uri 'none'`.
+
+`object-src` and `base-uri` repeat Astro's baseline in a header, which prerendered pages otherwise carry only in a `<meta>` (ASVS 3.4.3, `docs/security/asvs-l2.md` decision 7). Never add `default-src` or `script-src` here: browsers enforce every CSP they receive, and a script policy without Astro's per-page hashes would block its inline scripts.
 
 The operation must be **Add**, never Set. On-demand pages already carry Astro's hashed `Content-Security-Policy` header, and Set would replace it. Browsers enforce every CSP they receive (`security-code.md`).
 

@@ -11,7 +11,8 @@ const SECURITY_HEADERS = {
   "permissions-policy":
     "accelerometer=(), browsing-topics=(), camera=(), display-capture=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()",
 };
-const FRAME_ANCESTORS = "frame-ancestors 'none'";
+const EDGE_POLICY =
+  "frame-ancestors 'none'; object-src 'none'; base-uri 'none'";
 const UNCACHED = ["DYNAMIC", "BYPASS"];
 const OBSERVATORY_SCAN_URL =
   "https://observatory-api.mdn.mozilla.net/api/v2/scan";
@@ -25,7 +26,7 @@ for (const url of APP_URLS) {
       const response = await request.get(url);
 
       expect(response.headers()).toMatchObject(SECURITY_HEADERS);
-      expect(policies(response)).toContain(FRAME_ANCESTORS);
+      expect(policies(response)).toContain(EDGE_POLICY);
     },
   );
 
@@ -78,7 +79,7 @@ test(
 
     expect(UNCACHED).toContain(response.headers()["cf-cache-status"]);
     // Both headers must arrive: the edge rule adds its CSP and never replaces Astro's (security-code.md).
-    expect(policies(response)).toContain(FRAME_ANCESTORS);
+    expect(policies(response)).toContain(EDGE_POLICY);
     expect(policies(response)).toContainEqual(
       expect.stringMatching(/script-src[^;]*sha256-/),
     );
