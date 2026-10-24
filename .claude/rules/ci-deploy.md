@@ -51,9 +51,10 @@ paths:
   3. call the production webhook;
   4. wait for the health endpoint to report the new SHA;
   5. purge the Cloudflare cache;
-  6. smoke checks: Playwright with no login, Lighthouse CI, Observatory.
+  6. smoke checks: the `@smoke` Playwright tests with no login, including the edge headers, the cache rules and Observatory's A+.
+    
+  If the redeploy (step 3), the health wait (step 4) or the smoke checks (step 6) fail, roll back; a cancelled or timed-out smoke step counts as failed. To roll back, retag `:prod` to the digest recorded in step 2 with `docker buildx imagetools create`, call the webhook again, and purge the cache. A failed purge alone doesn't roll back. Once every deploy job succeeds, Lighthouse CI runs against production in a job of its own; a miss fails the run but never rolls back (ADR 0008). Deploy jobs run one at a time and share one `concurrency` group per target with `cancel-in-progress: false`, so two merges never race on `:prod`.
 
-  If step 4 or 6 fails, roll back: retag `:prod` to the digest recorded in step 2 with `docker buildx imagetools create`, call the webhook again, and purge the cache. Deploy jobs share one `concurrency` group per target with `cancel-in-progress: false`, so two merges never race on `:prod`.
 - **Path filters** (`dorny/paths-filter`):
 
   | Target | Paths |
@@ -65,9 +66,9 @@ paths:
   Never add `crates/**` to an app filter. A real contract change reaches the apps through `packages/api-types`.
 - **Typecheck scope:** pull requests check only the affected packages, using `fetch-depth: 0` and `origin/<base_ref>`. Pushes to `main` check everything.
 - **Staging:** none for now (ADR 0002). If one is added, it lives on its own registrable domain, laid out like production.
-- **Known Coolify risks** (ADR 0001):
-  - Routing `/api` and `/` on one host to different resources is unverified. The fallback is `api.vikingthe.dev` with CORS and an exact `Origin` allowlist. Ask first.
-  - How a Docker Image resource reaches the API's internal `:8081` is unconfirmed. The fallback is a shared Docker network, attached manually.
+- **Coolify risks resolved** (ADR 0001; outcomes in `docs/plan.md`, ADR 0009 pending):
+  - Routing `/api` and `/` on one host to different resources works (step 10, 2026-10-23), so there's no `api.` subdomain or CORS.
+  - A Docker Image resource reaches the API's internal `:8081` through a Coolify *Network Alias* (`vikingthedev-api`), not its UUID, which never resolves (step 11, 2026-10-23; the 50 ms budget waits for step 18).
 
 ## Repo settings (applied by the human)
 
